@@ -29,7 +29,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Mi lista"].waitForExistence(timeout: 5))
         app.tabBars.buttons["Buscar"].tap()
         app.buttons["actions-aaaaaaaaaaa"].tap()
-        let addToPlaylist = app.buttons["Añadir a una lista"]
+        let addToPlaylist = app.sheets["Más opciones"].buttons["Añadir a una lista"].firstMatch
         XCTAssertTrue(addToPlaylist.waitForExistence(timeout: 5))
         addToPlaylist.tap()
         XCTAssertTrue(app.navigationBars["Añadir a una lista"].waitForExistence(timeout: 5))
@@ -105,7 +105,11 @@ final class PersonalPlayerFlowTests: XCTestCase {
 
     private func saveCurrentFavorite() {
         app.buttons["currentActions"].tap()
-        app.buttons["Guardar en Favoritos"].tap()
+        let options = app.sheets["Más opciones"]
+        XCTAssertTrue(options.waitForExistence(timeout: 5))
+        let favorite = options.buttons["Guardar en Favoritos"].firstMatch
+        XCTAssertTrue(favorite.waitForExistence(timeout: 5))
+        favorite.tap()
     }
 
     private func capture(_ name: String) {
