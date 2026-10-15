@@ -71,6 +71,9 @@ final class PersonalPlayerFlowTests: XCTestCase {
         app.tabBars.buttons["Biblioteca"].tap()
         app.buttons["Favoritos"].tap()
         XCTAssertTrue(app.buttons["favorite-aaaaaaaaaaa"].waitForExistence(timeout: 5))
+        app.buttons["favorite-aaaaaaaaaaa"].tap()
+        XCTAssertTrue(app.buttons["closePlayer"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
     }
 
     func testLargeTextAndDarkModeKeepNavigationOperable() {

@@ -60,7 +60,12 @@ private class NativePlaybackFixture: URLProtocol, @unchecked Sendable {
 
     override func startLoading() {
         guard let url = request.url, let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil) else { return }
-        let body = url.path == "/youtubei/v1/player" ? type(of: self).playerJSON : "<html>No web player available</html>"
+        let body: String
+        switch url.path {
+        case "/youtubei/v1/player": body = type(of: self).playerJSON
+        case "/youtubei/v1/search": body = #"{"responseContext":{"visitorData":"anonymous-api-visitor"},"contents":{}}"#
+        default: body = "<html>No web player available</html>"
+        }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(body.utf8))
         client?.urlProtocolDidFinishLoading(self)

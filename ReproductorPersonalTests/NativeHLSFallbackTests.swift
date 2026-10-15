@@ -3,6 +3,30 @@ import XCTest
 @testable import ReproductorPersonal
 
 final class NativeHLSFallbackTests: XCTestCase {
+    func testSavedVideoBootstrapsAnonymousContextBeforePlayerRequests() async throws {
+        XCTAssertTrue(URLProtocol.registerClass(ColdSavedVideoFixture.self))
+        defer { URLProtocol.unregisterClass(ColdSavedVideoFixture.self) }
+
+        let resource: PlaybackResource
+        do { resource = try await YouTubeClient().resolve(videoID: "aaaaaaaaaa0") }
+        catch { XCTFail("A saved video must resolve without a prior user search: \(error)"); return }
+
+        XCTAssertEqual(resource.url, URL(string: "https://media.example.test/compatible.m3u8"))
+        XCTAssertGreaterThan(try XCTUnwrap(resource.expiresAt), Date().addingTimeInterval(30))
+    }
+
+    func testColdBootstrapWithoutVisitorReportsUnavailable() async {
+        XCTAssertTrue(URLProtocol.registerClass(EmptyBootstrapVisitorFixture.self))
+        defer { URLProtocol.unregisterClass(EmptyBootstrapVisitorFixture.self) }
+
+        do {
+            _ = try await YouTubeClient().resolve(videoID: "aaaaaaaaaa0")
+            XCTFail("A cold client must not proceed without the anonymous context")
+        } catch {
+            XCTAssertEqual(error as? AppError, .unavailable)
+        }
+    }
+
     func testSABRFallsBackToHLSWithAnAnonymousVisitor() async throws {
         XCTAssertTrue(URLProtocol.registerClass(NativeHLSFixture.self))
         defer { URLProtocol.unregisterClass(NativeHLSFixture.self) }
@@ -43,6 +67,8 @@ private class NativeHLSFixture: URLProtocol, @unchecked Sendable {
     class var visitor: String { "anonymous-watch-visitor" }
     class var searchVisitor: String? { nil }
     class var nativeHLSAvailable: Bool { true }
+    class var requiresVisitorForIOS: Bool { false }
+    class var blockedWatchStatus: Int { 403 }
 
     override class func canInit(with request: URLRequest) -> Bool {
         let host = request.url?.host ?? ""
@@ -62,17 +88,19 @@ private class NativeHLSFixture: URLProtocol, @unchecked Sendable {
                 // No player JavaScript is provided or needed for this native HLS.
                 body = "<script>ytcfg.set({\"VISITOR_DATA\":\"\(fixture.visitor)\"});</script>"
             } else {
-                status = 403
+                status = fixture.blockedWatchStatus
                 body = "The visitor from search must be reused"
             }
         case "/youtubei/v1/search":
-            body = #"{"responseContext":{"visitorData":"\#(fixture.searchVisitor ?? "")"},"contents":{}}"#
+            body = #"{"responseContext":{"visitorData":"\#(fixture.searchVisitor ?? fixture.visitor)"},"contents":{}}"#
         case "/youtubei/v1/player":
             let payload = (try? JSONSerialization.jsonObject(with: requestBody())) as? [String: Any]
             let context = payload?["context"] as? [String: Any]
             let identity = context?["client"] as? [String: Any]
             if identity?["clientName"] as? String == "IOS" {
-                body = Self.sabrJSON
+                body = fixture.requiresVisitorForIOS && request.value(forHTTPHeaderField: "X-Goog-Visitor-Id") != fixture.visitor
+                    ? #"{"playabilityStatus":{"status":"LOGIN_REQUIRED","reason":"Anonymous context missing"}}"#
+                    : Self.sabrJSON
             } else if identity?["clientName"] as? String == "VISIONOS",
                       identity?["clientVersion"] as? String == "1.02",
                       identity?["visitorData"] as? String == fixture.visitor,
@@ -125,4 +153,16 @@ private final class SearchVisitorHLSFixture: NativeHLSFixture, @unchecked Sendab
 
 private final class SABROnBothClientsFixture: NativeHLSFixture, @unchecked Sendable {
     override class var nativeHLSAvailable: Bool { false }
+}
+
+private final class ColdSavedVideoFixture: NativeHLSFixture, @unchecked Sendable {
+    override class var visitor: String { "anonymous-api-bootstrap-visitor" }
+    override class var searchVisitor: String? { visitor }
+    override class var requiresVisitorForIOS: Bool { true }
+    override class var blockedWatchStatus: Int { 429 }
+}
+
+private final class EmptyBootstrapVisitorFixture: NativeHLSFixture, @unchecked Sendable {
+    override class var searchVisitor: String? { "" }
+    override class var blockedWatchStatus: Int { 429 }
 }
