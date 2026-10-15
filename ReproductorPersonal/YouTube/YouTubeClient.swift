@@ -18,6 +18,7 @@ actor YouTubeClient: YouTubeProviding {
 
     func resolve(videoID: String) async throws -> PlaybackResource {
         do {
+            _ = try await anonymousVisitor(videoID: videoID)
             let response = try await VideoInfosWithDownloadFormatsResponse.sendThrowingRequest(
                 youtubeModel: model, data: [.query: videoID], useCookies: false
             )
@@ -117,15 +118,12 @@ actor YouTubeClient: YouTubeProviding {
 
     private func anonymousVisitor(videoID: String) async throws -> String {
         if !model.visitorData.isEmpty { return model.visitorData }
-        var components = URLComponents(string: "https://www.youtube.com/watch")!
-        components.queryItems = [URLQueryItem(name: "v", value: videoID)]
-        var request = URLRequest(url: components.url!, timeoutInterval: 20)
-        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
-        let html = String(decoding: try await anonymousData(for: request), as: UTF8.self)
-        let expression = try NSRegularExpression(pattern: #""(?:VISITOR_DATA|visitorData)"\s*:\s*("(?:[^"\\]|\\.)+")"#)
-        guard let match = expression.firstMatch(in: html, range: NSRange(html.startIndex..<html.endIndex, in: html)),
-              let range = Range(match.range(at: 1), in: html) else { throw AppError.unavailable }
-        let visitor = try JSONDecoder().decode(String.self, from: Data(html[range].utf8))
+        // Saved entries can be opened before Search has initialized the client.
+        // Use the existing API instead of the rate-limited watch-page bootstrap.
+        let response = try await SearchResponse.sendThrowingRequest(
+            youtubeModel: model, data: [.query: videoID], useCookies: false
+        )
+        guard let visitor = response.visitorData, !visitor.isEmpty else { throw AppError.unavailable }
         model.visitorData = visitor
         return visitor
     }

@@ -96,7 +96,12 @@ final class PersonalPlayerFlowTests: XCTestCase {
         let previous = field.value as? String ?? ""
         let count = previous == "Videos, canciones o artistas" ? 0 : previous.count
         field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count) + query)
-        app.buttons["searchSubmit"].tap()
+        let submit = app.buttons["searchSubmit"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            field.value as? String == query && submit.isEnabled && submit.isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+        submit.tap()
     }
 
     private func playFirstResult() {
