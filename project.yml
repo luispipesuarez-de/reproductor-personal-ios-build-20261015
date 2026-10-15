@@ -1,0 +1,68 @@
+name: ReproductorPersonal
+options:
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1,2'
+    CODE_SIGNING_ALLOWED: NO
+packages:
+  YouTubeKit:
+    url: https://github.com/b5i/YouTubeKit.git
+    revision: 6532af39da4c1612b0a1af603792419d8fb0e67f
+targets:
+  ReproductorPersonal:
+    type: application
+    platform: iOS
+    sources: [ReproductorPersonal]
+    dependencies:
+      - package: YouTubeKit
+    info:
+      path: ReproductorPersonal/Resources/Info.plist
+      properties:
+        UIBackgroundModes: [audio]
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: personal.reproductor.ios
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Reproductor
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 4
+  ReproductorPersonalTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ReproductorPersonalTests
+        excludes: [Fixtures]
+      - path: ReproductorPersonalTests/Fixtures
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - target: ReproductorPersonal
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: personal.reproductor.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+  ReproductorPersonalUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [ReproductorPersonalUITests]
+    dependencies:
+      - target: ReproductorPersonal
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: personal.reproductor.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: ReproductorPersonal
+schemes:
+  ReproductorPersonal:
+    build:
+      targets:
+        ReproductorPersonal: all
+    test:
+      targets: [ReproductorPersonalTests, ReproductorPersonalUITests]
+      gatherCoverageData: true

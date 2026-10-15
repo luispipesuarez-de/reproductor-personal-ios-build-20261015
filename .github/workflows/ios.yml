@@ -1,0 +1,58 @@
+name: iOS
+on:
+  workflow_dispatch:
+    inputs:
+      package_ipa:
+        description: Generar también el IPA Release
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - name: Recuperar paquete fijado
+        id: youtube-cache
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: build/SourcePackages
+          key: youtube-kit-${{ runner.os }}-6532af39da4c1612b0a1af603792419d8fb0e67f
+      - name: Preparar XcodeGen
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodebuild -version
+          xcodegen --version
+      - name: XCTest en iPhone simulado
+        run: bash scripts/ci.sh test
+      - name: Exportar capturas de interfaz
+        if: always()
+        continue-on-error: true
+        run: |
+          result=$(python3 -c 'from pathlib import Path; print(next(iter(sorted(Path("build").glob("Tests-*.xcresult"), reverse=True)), ""))')
+          if [ -n "$result" ]; then
+            xcrun xcresulttool export attachments --path "$result" --output-path build/ui-screenshots
+          fi
+      - name: Empaquetar para firma personal
+        if: inputs.package_ipa
+        run: bash scripts/ci.sh ipa
+      - name: Conservar paquete fijado
+        if: always() && steps.youtube-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: build/SourcePackages
+          key: youtube-kit-${{ runner.os }}-6532af39da4c1612b0a1af603792419d8fb0e67f
+      - name: Guardar evidencias
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ReproductorPersonal-${{ github.run_number }}
+          path: |
+            build/*.xcresult
+            build/*.ipa
+            build/*.log
+            build/*.png
+            build/ui-screenshots/
+          if-no-files-found: warn

@@ -1,0 +1,24 @@
+{
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {"itemSectionRenderer":{"contents":[{"adSlotRenderer":{"enablePacfLoggingWeb":true}}]}},
+            {"itemSectionRenderer":{"contents":[
+              {"videoRenderer":{
+                "videoId":"aaaaaaaaaaa",
+                "title":{"runs":[{"text":"Canción A"}]},
+                "ownerText":{"runs":[{"text":"Autor A","navigationEndpoint":{"browseEndpoint":{"browseId":"UCA"}}}]},
+                "lengthText":{"simpleText":"3:20"},
+                "thumbnail":{"thumbnails":[{"url":"https://media.example.test/a.jpg","width":320,"height":180}]}
+              }},
+              {"channelRenderer":{"channelId":"UCB","title":{"simpleText":"Un canal"}}},
+              {"videoRenderer":{"title":{"simpleText":"Sin identificador"}}}
+            ]}}
+          ]
+        }
+      }
+    }
+  }
+}
