@@ -9,9 +9,9 @@ case "${1:-}" in
     simulator=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; devices=json.load(sys.stdin)["devices"]; phones=[d["udid"] for runtime,items in devices.items() if ".iOS-" in runtime for d in items if d.get("isAvailable") and d["name"].startswith("iPhone")]; sys.exit("No available iPhone simulator") if not phones else print(phones[0])')
     xcrun simctl boot "$simulator" 2>/dev/null || true
     xcrun simctl bootstatus "$simulator" -b
-    selection=()
-    if [ "$1" = test-unit ]; then selection=(-only-testing:ReproductorPersonalTests); fi
-    xcodebuild "${common[@]}" test "${selection[@]}" -destination "platform=iOS Simulator,id=$simulator" -parallel-testing-enabled NO -resultBundlePath "build/Tests-$(date +%s).xcresult" 2>&1 | tee build/tests.log
+    selection=(test)
+    if [ "$1" = test-unit ]; then selection+=(-only-testing:ReproductorPersonalTests); fi
+    xcodebuild "${common[@]}" "${selection[@]}" -destination "platform=iOS Simulator,id=$simulator" -parallel-testing-enabled NO -resultBundlePath "build/Tests-$(date +%s).xcresult" 2>&1 | tee build/tests.log
     xcrun simctl launch --terminate-running-process "$simulator" personal.reproductor.ios
     sleep 2
     xcrun simctl io "$simulator" screenshot build/preview.png
