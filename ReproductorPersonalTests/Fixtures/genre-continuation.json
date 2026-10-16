@@ -1,0 +1,48 @@
+{
+  "onResponseReceivedCommands": [
+    {
+      "appendContinuationItemsAction": {
+        "continuationItems": [
+          {
+            "itemSectionRenderer": {
+              "contents": [
+                {
+                  "videoRenderer": {
+                    "videoId": "ccccccccccc",
+                    "title": {
+                      "simpleText": "Canción C"
+                    },
+                    "longBylineText": {
+                      "runs": [
+                        {
+                          "text": "Autor C",
+                          "navigationEndpoint": {
+                            "browseEndpoint": {
+                              "browseId": "UCc"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "thumbnail": {
+                      "thumbnails": [
+                        {
+                          "url": "https://images.example.test/c.jpg",
+                          "width": 320,
+                          "height": 180
+                        }
+                      ]
+                    },
+                    "lengthText": {
+                      "simpleText": "3:20"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

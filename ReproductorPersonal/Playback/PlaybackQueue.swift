@@ -3,8 +3,9 @@ import Foundation
 struct QueueEntry: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     let video: Video
+    var isAutomatic: Bool { false }
 
-    init(id: UUID = UUID(), video: Video) {
+    init(id: UUID = UUID(), video: Video, isAutomatic: Bool = false) {
         self.id = id
         self.video = video
     }
@@ -15,6 +16,9 @@ struct PlaybackQueue: Equatable {
     private(set) var currentIndex: Int?
     var current: QueueEntry? { currentIndex.map { entries[$0] } }
     var upcomingCount: Int { currentIndex.map { entries.count - $0 - 1 } ?? 0 }
+
+    mutating func appendAutomatic(_ videos: [Video]) {}
+    mutating func trimPast(keeping count: Int) {}
 
     init(entries: [QueueEntry] = [], currentIndex: Int? = nil) {
         self.entries = entries

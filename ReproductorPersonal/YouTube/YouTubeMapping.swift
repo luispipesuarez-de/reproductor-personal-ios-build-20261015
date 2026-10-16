@@ -2,6 +2,8 @@ import Foundation
 import YouTubeKit
 
 enum YouTubeMapping {
+    static func videos(from results: [any YTSearchResult]) -> [Video] { [] }
+
     static func videos(from response: SearchResponse) -> [Video] {
         response.results.compactMap { result in
             guard let video = result as? YTVideo, video.videoId.count == 11 else { return nil }

@@ -4,8 +4,11 @@ struct QueueSnapshot: Codable, Equatable, Sendable {
     var entries: [QueueEntry]
     var currentIndex: Int?
     var progressSeconds: Double
+    var autoplayEnabled: Bool { true }
+    var radioSeed: RecommendationSeed? { nil }
 
-    init(entries: [QueueEntry] = [], currentIndex: Int? = nil, progressSeconds: Double = 0) {
+    init(entries: [QueueEntry] = [], currentIndex: Int? = nil, progressSeconds: Double = 0,
+         autoplayEnabled: Bool = true, radioSeed: RecommendationSeed? = nil) {
         self.entries = entries
         self.currentIndex = currentIndex.flatMap { entries.indices.contains($0) ? $0 : nil }
         self.progressSeconds = progressSeconds.isFinite && progressSeconds >= 0 ? progressSeconds : 0

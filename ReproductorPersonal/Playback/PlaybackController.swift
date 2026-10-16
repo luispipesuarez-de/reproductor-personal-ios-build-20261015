@@ -32,6 +32,9 @@ final class PlaybackController: ObservableObject {
     @Published private(set) var duration: Double?
     // ponytail: one app session owns persistence; use a publisher only for multiple owners.
     var onPlaybackChange: (() -> Void)?
+    func startRadio(genre: String) async {}
+    func startRadio(from video: Video) async {}
+    func setAutoplayEnabled(_ enabled: Bool) {}
     private let source: any YouTubeProviding
     private var requestID = UUID()
     private var activeEntryID: UUID?

@@ -1,0 +1,221 @@
+{
+  "contents": {
+    "twoColumnWatchNextResults": {
+      "secondaryResults": {
+        "secondaryResults": {
+          "results": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "compactVideoRenderer": {
+                      "videoId": "aaaaaaaaaaa",
+                      "title": {
+                        "simpleText": "Canción A"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "text": "Autor A",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCa"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://images.example.test/a.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "3:20"
+                      }
+                    }
+                  },
+                  {
+                    "compactVideoRenderer": {
+                      "videoId": "aaaaaaaaaaa",
+                      "title": {
+                        "simpleText": "Canción A"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "text": "Autor A",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCa"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://images.example.test/a.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "3:20"
+                      }
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "contentId": "bbbbbbbbbbb",
+                      "contentType": "LOCKUP_CONTENT_TYPE_VIDEO",
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": {
+                            "content": "Canción B"
+                          }
+                        }
+                      },
+                      "contentImage": {
+                        "thumbnailViewModel": {
+                          "overlays": [
+                            {
+                              "thumbnailOverlayBadgeViewModel": {
+                                "thumbnailBadges": [
+                                  {
+                                    "thumbnailBadgeViewModel": {
+                                      "text": "3:20"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "compactVideoRenderer": {
+                      "videoId": "!!!!!!!!!!!",
+                      "title": {
+                        "simpleText": "Canción !"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "text": "Autor !",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UC!"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://images.example.test/!.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "3:20"
+                      }
+                    }
+                  },
+                  {
+                    "compactVideoRenderer": {
+                      "videoId": "ddddddddddd",
+                      "title": {
+                        "simpleText": "Canción D"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "text": "Autor D",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCd"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://images.example.test/d.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "compactVideoRenderer": {
+                      "videoId": "eeeeeeeeeee",
+                      "title": {
+                        "simpleText": "Canción E"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "text": "Autor E",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCe"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://images.example.test/e.jpg",
+                            "width": 320,
+                            "height": 180
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "simpleText": "3:20"
+                      },
+                      "badges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "style": "BADGE_STYLE_TYPE_MEMBERS_ONLY"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "continuationItemRenderer": {
+                      "continuationEndpoint": {
+                        "continuationCommand": {
+                          "token": "related-next"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

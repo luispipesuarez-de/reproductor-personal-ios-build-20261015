@@ -5,9 +5,13 @@ import XCTest
 struct StubYouTubeProvider: YouTubeProviding {
     var onSearch: @Sendable (String) async throws -> [Video] = { _ in [] }
     var onResolve: @Sendable (String) async throws -> PlaybackResource = { _ in throw AppError.unavailable }
+    var onRecommendations: @Sendable (RecommendationSeed, String?) async throws -> RecommendationPage = { _, _ in RecommendationPage(videos: [], continuation: nil) }
 
     func search(query: String) async throws -> [Video] { try await onSearch(query) }
     func resolve(videoID: String) async throws -> PlaybackResource { try await onResolve(videoID) }
+    func recommendations(seed: RecommendationSeed, continuation: String?) async throws -> RecommendationPage {
+        try await onRecommendations(seed, continuation)
+    }
 }
 
 actor QueryRecorder {

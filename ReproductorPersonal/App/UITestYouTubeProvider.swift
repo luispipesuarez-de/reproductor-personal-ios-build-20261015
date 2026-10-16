@@ -2,6 +2,10 @@
 import Foundation
 
 struct UITestYouTubeProvider: YouTubeProviding {
+    func recommendations(seed: RecommendationSeed, continuation: String?) async throws -> RecommendationPage {
+        RecommendationPage(videos: [], continuation: nil)
+    }
+
     func search(query: String) async throws -> [Video] {
         if query == "vacio" { return [] }
         if query == "error" { throw AppError.offline }

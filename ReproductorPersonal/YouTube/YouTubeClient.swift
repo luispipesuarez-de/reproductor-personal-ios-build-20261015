@@ -4,6 +4,10 @@ import YouTubeKit
 actor YouTubeClient: YouTubeProviding {
     private let model = YouTubeModel()
 
+    func recommendations(seed: RecommendationSeed, continuation: String?) async throws -> RecommendationPage {
+        RecommendationPage(videos: [], continuation: nil)
+    }
+
     func search(query: String) async throws -> [Video] {
         do {
             let response = try await SearchResponse.sendThrowingRequest(

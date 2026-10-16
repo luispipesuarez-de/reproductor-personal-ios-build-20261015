@@ -142,6 +142,133 @@ final class PersonalPlayerFlowTests: XCTestCase {
         capture("Texto grande y modo oscuro")
     }
 
+    func testCustomGenreStartsRadio() {
+        app.launch()
+        let other = app.buttons["Otro género"]
+        for _ in 0..<4 where !other.isHittable { app.swipeUp() }
+        XCTAssertTrue(other.exists)
+        guard other.exists else { return }
+        other.tap()
+        let alert = app.alerts["Otro género"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        alert.textFields.firstMatch.typeText("Jazz")
+        alert.buttons["Iniciar"].tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Radio Jazz"].exists)
+    }
+
+    func testGenresStartRadioAndContinuationCanBeDisabled() {
+        app.launch()
+        let salsa = app.buttons["genre-Salsa"]
+        XCTAssertTrue(salsa.waitForExistence(timeout: 5))
+        guard salsa.exists else { return }
+        salsa.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Radio Salsa"].exists)
+        capture("Radio Salsa y controles")
+        let toggle = app.switches["autoplayToggle"].firstMatch
+        for _ in 0..<3 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+        app.buttons["closePlayer"].tap()
+        app.buttons["genre-Rock"].tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Radio Rock"].exists)
+    }
+
+    func testSongRadioCanBeStartedFromResultMenu() {
+        app.launch()
+        search("cancion")
+        app.buttons["actions-aaaaaaaaaaa"].tap()
+        let radio = app.sheets["Más opciones"].buttons["Iniciar radio"].firstMatch
+        XCTAssertTrue(radio.waitForExistence(timeout: 5))
+        guard radio.exists else { return }
+        radio.tap()
+        let open = app.buttons["openPlayer"].firstMatch
+        XCTAssertTrue(open.waitForExistence(timeout: 5))
+        open.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Radio desde una canción"].exists)
+    }
+
+    func testRecommendationsAppearInsideSearchAfterListening() {
+        app.launch()
+        search("cancion")
+        playFirstResult()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["closePlayer"].tap()
+        let field = app.textFields["searchField"]
+        field.tap()
+        var text = field.value as? String ?? ""
+        while !text.isEmpty {
+            field.typeText(XCUIKeyboardKey.delete.rawValue)
+            text.removeLast()
+            expectValue(text, in: field)
+        }
+        let recommended = app.staticTexts["Para ti"]
+        for _ in 0..<6 where !recommended.isHittable { app.swipeUp() }
+        XCTAssertTrue(recommended.exists)
+        let discovered = app.buttons["discover-bbbbbbbbbbb"]
+        for _ in 0..<6 where !discovered.isHittable { app.swipeUp() }
+        XCTAssertTrue(app.staticTexts["Por descubrir"].exists)
+        XCTAssertTrue(discovered.exists)
+        XCTAssertFalse(app.buttons["discover-aaaaaaaaaaa"].exists)
+        capture("Buscar con recomendaciones y descubrimiento")
+    }
+
+    func testManualSongRemainsBeforeSuggestionsInQueue() {
+        app.launch()
+        let salsa = app.buttons["genre-Salsa"]
+        XCTAssertTrue(salsa.waitForExistence(timeout: 5))
+        guard salsa.exists else { return }
+        salsa.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["closePlayer"].tap()
+        search("cancion")
+        app.buttons["actions-bbbbbbbbbbb"].tap()
+        app.sheets["Más opciones"].buttons["Añadir a la cola"].firstMatch.tap()
+        app.buttons["openPlayer"].firstMatch.tap()
+        let queue = app.buttons["openQueue"]
+        for _ in 0..<3 where !queue.isHittable { app.swipeUp() }
+        queue.tap()
+        let manual = app.buttons["queue-bbbbbbbbbbb"].firstMatch
+        XCTAssertTrue(manual.waitForExistence(timeout: 5))
+        XCTAssertEqual(manual.value as? String, "A continuación · Añadida por ti")
+        capture("Cola con prioridad manual")
+    }
+
+    func testLargeTextAndDarkModeKeepRadioAndQueueOperable() {
+        app.launchArguments += ["--ui-large-text", "--ui-dark"]
+        app.launch()
+        capture("Buscar géneros con texto grande y modo oscuro")
+        let salsa = app.buttons["genre-Salsa"]
+        XCTAssertTrue(salsa.waitForExistence(timeout: 5))
+        guard salsa.exists else { return }
+        salsa.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        let toggle = app.switches["autoplayToggle"].firstMatch
+        for _ in 0..<8 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        capture("Radio con texto grande y modo oscuro")
+        let queue = app.buttons["openQueue"]
+        for _ in 0..<5 where !queue.isHittable { app.swipeUp() }
+        XCTAssertTrue(queue.isHittable)
+        queue.tap()
+        XCTAssertTrue(app.navigationBars["Cola"].waitForExistence(timeout: 5))
+        capture("Cola con texto grande y modo oscuro")
+    }
+
+
+    private func closePlayer() {
+        let close = app.buttons["closePlayer"]
+        close.tap()
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !close.exists && self.app.tabBars.buttons["Biblioteca"].isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
+
     private func search(_ query: String) {
         let field = app.textFields["searchField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
