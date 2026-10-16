@@ -16,7 +16,11 @@ final class LibraryStore: ObservableObject {
 
     init(fileURL: URL) { self.fileURL = fileURL }
 
-    var allMusic: [Video] { [] }
+    var allMusic: [Video] {
+        var seen: Set<String> = []
+        return (snapshot.favorites + snapshot.playlists.flatMap(\.videos) + snapshot.recent)
+            .filter { seen.insert($0.id).inserted }
+    }
 
     func load() throws {
         do {

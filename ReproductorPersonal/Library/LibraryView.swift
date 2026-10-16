@@ -14,6 +14,13 @@ struct LibraryView: View {
             List {
                 if let errorMessage { Section { Text(errorMessage) } }
                 Section {
+                    Button {
+                        let videos = library.allMusic.shuffled()
+                        onPlay()
+                        Task { await playback.play(videos) }
+                    } label: { Label("Mezclar mi música", systemImage: "shuffle").frame(minHeight: 44) }
+                    .disabled(!hasMusic)
+                    .accessibilityIdentifier("shuffleAllMusic")
                     NavigationLink {
                         LibraryVideosView(kind: .favorites, library: library, playback: playback, onPlay: onPlay)
                     } label: { Label("Favoritos", systemImage: "heart") }
@@ -21,8 +28,8 @@ struct LibraryView: View {
                     .accessibilityValue("\(library.snapshot.favorites.count) elementos")
                     NavigationLink {
                         LibraryVideosView(kind: .recent, library: library, playback: playback, onPlay: onPlay)
-                    } label: { Label("Recientes", systemImage: "clock") }
-                    .accessibilityLabel("Recientes")
+                    } label: { Label("Historial", systemImage: "clock") }
+                    .accessibilityLabel("Historial")
                 }
                 Section("Listas") {
                     if library.snapshot.playlists.isEmpty {
@@ -59,6 +66,11 @@ struct LibraryView: View {
             }
         }
     }
+
+    private var hasMusic: Bool {
+        !library.snapshot.favorites.isEmpty || !library.snapshot.recent.isEmpty
+            || library.snapshot.playlists.contains { !$0.videos.isEmpty }
+    }
 }
 
 @MainActor
@@ -73,6 +85,13 @@ private struct LibraryVideosView: View {
 
     var body: some View {
         List {
+            if kind == .favorites, !videos.isEmpty {
+                Button {
+                    let shuffled = videos.shuffled()
+                    onPlay()
+                    Task { await playback.play(shuffled) }
+                } label: { Label("Mezclar favoritos", systemImage: "shuffle").frame(minHeight: 44) }
+            }
             if videos.isEmpty {
                 Text(kind == .favorites ? "Guarda videos desde el menú de opciones de un resultado o de Ahora suena." : "Aquí aparecerá el contenido cuando empiece a reproducirse.")
                     .foregroundStyle(.secondary)
@@ -90,7 +109,7 @@ private struct LibraryVideosView: View {
             }
         }
         .accessibilityIdentifier(kind == .favorites ? "favoritesList" : "recentList")
-        .navigationTitle(kind == .favorites ? "Favoritos" : "Recientes")
+        .navigationTitle(kind == .favorites ? "Favoritos" : "Historial")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

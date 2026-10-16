@@ -26,6 +26,11 @@ struct PlaylistView: View {
                         Task { await playback.play(playlist.videos) }
                     } label: { Label("Reproducir lista", systemImage: "play.fill").frame(minHeight: 44) }
                     .disabled(isPreparing(playlist.videos, index: 0))
+                    Button {
+                        let videos = playlist.videos.shuffled()
+                        onPlay()
+                        Task { await playback.play(videos) }
+                    } label: { Label("Mezclar lista", systemImage: "shuffle").frame(minHeight: 44) }
                 }
                 ForEach(Array(playlist.videos.enumerated()), id: \.offset) { index, video in
                     HStack {

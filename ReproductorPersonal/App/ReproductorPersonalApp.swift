@@ -6,6 +6,7 @@ struct ReproductorPersonalApp: App {
     @StateObject private var search: SearchViewModel
     @StateObject private var playback: PlaybackController
     @StateObject private var library: LibraryStore
+    @StateObject private var persistence: PlaybackLibraryPersistence
 
     init() {
         let source: any YouTubeProviding
@@ -22,13 +23,16 @@ struct ReproductorPersonalApp: App {
         source = YouTubeClient()
 #endif
         _search = StateObject(wrappedValue: SearchViewModel(source: source))
-        _playback = StateObject(wrappedValue: PlaybackController(source: source))
-        _library = StateObject(wrappedValue: LibraryStore(fileURL: fileURL))
+        let playback = PlaybackController(source: source)
+        let library = LibraryStore(fileURL: fileURL)
+        _playback = StateObject(wrappedValue: playback)
+        _library = StateObject(wrappedValue: library)
+        _persistence = StateObject(wrappedValue: PlaybackLibraryPersistence(library: library, playback: playback))
     }
 
     var body: some Scene {
         WindowGroup {
-            RootView(search: search, playback: playback, library: library)
+            RootView(search: search, playback: playback, library: library, persistence: persistence)
 #if DEBUG
                 .modifier(UITestAppearance())
 #endif

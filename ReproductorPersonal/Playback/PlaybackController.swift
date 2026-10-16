@@ -24,10 +24,14 @@ enum PlaybackState: Equatable {
 @MainActor
 final class PlaybackController: ObservableObject {
     let player: AVQueuePlayer
-    @Published private(set) var state: PlaybackState = .idle { didSet { updateMediaInfo() } }
-    @Published private(set) var queue = PlaybackQueue()
+    @Published private(set) var state: PlaybackState = .idle {
+        didSet { updateMediaInfo(); onPlaybackChange?() }
+    }
+    @Published private(set) var queue = PlaybackQueue() { didSet { onPlaybackChange?() } }
     @Published private(set) var elapsed: Double = 0
     @Published private(set) var duration: Double?
+    // ponytail: one app session owns persistence; use a publisher only for multiple owners.
+    var onPlaybackChange: (() -> Void)?
     private let source: any YouTubeProviding
     private var requestID = UUID()
     private var activeEntryID: UUID?
@@ -171,7 +175,11 @@ final class PlaybackController: ObservableObject {
         await startCurrent(progress: 0)
     }
 
-    func shuffleUpcoming() {}
+    func shuffleUpcoming() {
+        discardPrepared()
+        queue.shuffleUpcoming()
+        prepareNext()
+    }
 
     func seek(to seconds: Double) {
         let normalized = seconds.isFinite ? max(0, seconds) : 0
@@ -181,12 +189,14 @@ final class PlaybackController: ObservableObject {
             player.seek(to: CMTime(seconds: target, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
         }
         updateMediaInfo()
+        onPlaybackChange?()
     }
 
     func snapshot() -> QueueSnapshot {
         let native = player.currentTime().seconds
+        let ownsNativeProgress = activeEntryID == queue.current?.id && player.currentItem != nil
         return QueueSnapshot(entries: queue.entries, currentIndex: queue.currentIndex,
-                             progressSeconds: player.currentItem != nil && native.isFinite ? native : elapsed)
+                             progressSeconds: ownsNativeProgress && native.isFinite ? native : elapsed)
     }
 
     func restore(_ snapshot: QueueSnapshot) {

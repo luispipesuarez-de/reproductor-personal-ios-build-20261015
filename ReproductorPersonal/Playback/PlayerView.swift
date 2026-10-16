@@ -26,7 +26,7 @@ struct PlayerView: UIViewControllerRepresentable {
 struct NowPlayingView: View {
     @ObservedObject var playback: PlaybackController
     @ObservedObject var library: LibraryStore
-    @Binding var storageError: String?
+    let storageError: String?
     let retryStorage: () -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var showQueue = false
@@ -92,6 +92,12 @@ struct NowPlayingView: View {
                     Image(systemName: "goforward.15").font(.title2).frame(minWidth: 44, minHeight: 44)
                 }.accessibilityLabel("Avanzar 15 segundos")
             }.frame(maxWidth: .infinity)
+            Button(action: playback.shuffleUpcoming) {
+                Label("Mezclar cola", systemImage: "shuffle").frame(minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .disabled(playback.queue.upcomingCount < 2)
+            .accessibilityIdentifier("shuffleQueue")
         }
     }
 

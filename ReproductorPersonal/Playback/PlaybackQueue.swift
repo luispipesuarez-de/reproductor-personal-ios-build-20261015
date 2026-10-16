@@ -14,6 +14,7 @@ struct PlaybackQueue: Equatable {
     private(set) var entries: [QueueEntry]
     private(set) var currentIndex: Int?
     var current: QueueEntry? { currentIndex.map { entries[$0] } }
+    var upcomingCount: Int { currentIndex.map { entries.count - $0 - 1 } ?? 0 }
 
     init(entries: [QueueEntry] = [], currentIndex: Int? = nil) {
         self.entries = entries
@@ -51,7 +52,13 @@ struct PlaybackQueue: Equatable {
         return current
     }
 
-    mutating func shuffleUpcoming() {}
+    mutating func shuffleUpcoming() {
+        var generator = SystemRandomNumberGenerator()
+        shuffleUpcoming(using: &generator)
+    }
 
-    mutating func shuffleUpcoming<R: RandomNumberGenerator>(using generator: inout R) {}
+    mutating func shuffleUpcoming<R: RandomNumberGenerator>(using generator: inout R) {
+        guard let currentIndex, upcomingCount > 1 else { return }
+        entries[(currentIndex + 1)...].shuffle(using: &generator)
+    }
 }

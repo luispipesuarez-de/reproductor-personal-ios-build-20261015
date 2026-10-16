@@ -28,6 +28,13 @@ struct QueueView: View {
             .navigationTitle("Cola")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: playback.shuffleUpcoming) {
+                        Image(systemName: "shuffle").frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("Mezclar próximos elementos")
+                    .disabled(playback.queue.upcomingCount < 2)
+                }
                 ToolbarItem(placement: .navigationBarLeading) { EditButton() }
                 ToolbarItem(placement: .confirmationAction) { Button("Cerrar") { dismiss() } }
             }

@@ -5,15 +5,13 @@ struct RootView: View {
     @ObservedObject var search: SearchViewModel
     @ObservedObject var playback: PlaybackController
     @ObservedObject var library: LibraryStore
+    @ObservedObject var persistence: PlaybackLibraryPersistence
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPlayer = false
-    @State private var loaded = false
-    @State private var storageError: String?
-    @State private var lastRecordedEntry: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
-            if let storageError { StorageWarning(message: storageError, retry: retryStorage) }
+            if let storageError = persistence.errorMessage { StorageWarning(message: storageError, retry: persistence.retry) }
             TabView {
                 SearchView(search: search, playback: playback, library: library, onPlay: openPlayer)
                     .safeAreaInset(edge: .bottom) { miniPlayer }
@@ -24,15 +22,10 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $showPlayer) {
-            NowPlayingView(playback: playback, library: library, storageError: $storageError, retryStorage: retryStorage)
+            NowPlayingView(playback: playback, library: library, storageError: persistence.errorMessage, retryStorage: persistence.retry)
         }
-        .task { if !loaded { loadLibrary() } }
-        .onChange(of: playback.queue) { _ in persistPlayback() }
-        .onChange(of: playback.state) { state in
-            if case .loading = state { return }
-            persistPlayback()
-        }
-        .onChange(of: scenePhase) { if $0 == .background { persistPlayback() } }
+        .task { persistence.load() }
+        .onChange(of: scenePhase) { if $0 == .background { persistence.save() } }
     }
 
     @ViewBuilder private var miniPlayer: some View {
@@ -40,32 +33,6 @@ struct RootView: View {
     }
 
     private func openPlayer() { showPlayer = true }
-
-    private func loadLibrary() {
-        do {
-            try library.load()
-            if !loaded, playback.queue.entries.isEmpty, let saved = library.snapshot.queue { playback.restore(saved) }
-            loaded = true
-            storageError = nil
-        } catch { storageError = error.localizedDescription }
-    }
-
-    private func retryStorage() {
-        if loaded { persistPlayback() } else { loadLibrary() }
-    }
-
-    private func persistPlayback() {
-        guard loaded else { return }
-        do {
-            if playback.state.isPlaying, let entry = playback.queue.current,
-               entry.video == playback.state.video, lastRecordedEntry != entry.id {
-                try library.recordRecent(entry.video)
-                lastRecordedEntry = entry.id
-            }
-            try library.saveQueue(playback.snapshot())
-            storageError = nil
-        } catch { storageError = error.localizedDescription }
-    }
 }
 
 struct StorageWarning: View {
