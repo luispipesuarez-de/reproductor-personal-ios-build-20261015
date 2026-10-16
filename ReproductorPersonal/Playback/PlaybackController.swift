@@ -366,7 +366,10 @@ final class PlaybackController: ObservableObject {
             case .success(let candidates):
                 let currentIDs = Set(self.queue.entries.map(\.video.id))
                 let fresh = candidates.filter { !currentIDs.contains($0.id) }
-                guard !fresh.isEmpty else { self.radioStatus = .exhausted; return }
+                guard !fresh.isEmpty else {
+                    self.radioStatus = !candidates.isEmpty && radio.hasMore ? .idle : .exhausted
+                    return
+                }
                 self.radioStatus = .idle
                 self.radioStartPending = false
                 if replacingQueue, self.queue.current?.id == selection, self.requestID == transport {

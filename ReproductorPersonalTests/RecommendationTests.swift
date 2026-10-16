@@ -14,10 +14,11 @@ final class RecommendationTests: XCTestCase {
         XCTAssertTrue(URLProtocol.registerClass(RecommendationFixture.self))
         defer { URLProtocol.unregisterClass(RecommendationFixture.self) }
         let client = YouTubeClient()
-        let page = try await client.recommendations(seed: .video(videoA.id), continuation: nil)
+        let seed = RecommendationSeed.video("aaaaaaaaaa0")
+        let page = try await client.recommendations(seed: seed, continuation: nil)
         XCTAssertEqual(page.videos.map(\.id), [videoA.id, videoB.id])
         XCTAssertEqual(page.continuation, "related-next")
-        let next = try await client.recommendations(seed: .video(videoA.id), continuation: "related-next")
+        let next = try await client.recommendations(seed: seed, continuation: "related-next")
         XCTAssertEqual(next.videos.map(\.id), ["ccccccccccc"])
         XCTAssertNil(next.continuation)
     }
