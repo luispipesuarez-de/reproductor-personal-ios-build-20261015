@@ -255,13 +255,17 @@ final class PersonalPlayerFlowTests: XCTestCase {
         let toggle = app.switches["autoplayToggle"].firstMatch
         for _ in 0..<8 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.isHittable)
+        let playerHeadingHeight = app.staticTexts["Radio Salsa"].firstMatch.frame.height
         capture("Radio con texto grande y modo oscuro")
         let queue = app.buttons["openQueue"]
         for _ in 0..<5 where !queue.isHittable { app.swipeUp() }
         XCTAssertTrue(queue.isHittable)
         queue.tap()
         XCTAssertTrue(app.navigationBars["Cola"].waitForExistence(timeout: 5))
+        let queueHeadingHeight = app.staticTexts["Radio Salsa"].firstMatch.frame.height
         capture("Cola con texto grande y modo oscuro")
+        XCTAssertGreaterThan(min(playerHeadingHeight, queueHeadingHeight), 30,
+                             "Accessibility headings must both scale: player=\(playerHeadingHeight), queue=\(queueHeadingHeight)")
     }
 
 

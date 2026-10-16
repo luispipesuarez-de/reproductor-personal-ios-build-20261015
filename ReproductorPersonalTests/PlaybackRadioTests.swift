@@ -4,6 +4,90 @@ import XCTest
 
 @MainActor
 final class PlaybackRadioTests: PlaybackTestCase {
+    func testManualChoiceDuringGenreStartupRemainsNextAfterItsFirstSong() async throws {
+        let audio = try audioURL()
+        let gate = RequestGate<RecommendationPage>()
+        let started = expectation(description: "genre metadata")
+        let controller = PlaybackController(source: StubYouTubeProvider(onResolve: { _ in
+            PlaybackResource(url: audio, expiresAt: nil)
+        }, onRecommendations: { seed, _ in
+            if case .genre = seed { return try await gate.request("genre", started: started) }
+            return RecommendationPage(videos: [], continuation: nil)
+        }))
+        await controller.play(videoA)
+        let startup = Task { await controller.startRadio(genre: "Salsa") }
+        await fulfillment(of: [started], timeout: 1)
+        let manual = radioVideo(90)
+        controller.enqueue(manual)
+        let manualID = try XCTUnwrap(controller.queue.entries.first(where: { $0.video.id == manual.id })?.id)
+        await gate.complete("genre", with: .success(RecommendationPage(videos: [radioVideo(0), radioVideo(1), radioVideo(2)], continuation: nil)))
+        await startup.value
+        XCTAssertEqual(controller.queue.current?.video.id, radioVideo(0).id)
+        XCTAssertEqual(controller.queue.entries.map(\.video.id), [radioVideo(0).id, manual.id, radioVideo(1).id, radioVideo(2).id])
+        let preserved = controller.queue.entries.first(where: { $0.video.id == manual.id })
+        XCTAssertEqual(preserved?.id, manualID)
+        XCTAssertEqual(preserved?.isAutomatic, false)
+        controller.pause()
+    }
+
+    func testPreviousAtFirstEntryCancelsPendingAdvanceButKeepsItsCandidates() async throws {
+        let audio = try audioURL()
+        let gate = RequestGate<RecommendationPage>()
+        let started = expectation(description: "pending candidates")
+        let controller = PlaybackController(source: StubYouTubeProvider(onResolve: { _ in
+            PlaybackResource(url: audio, expiresAt: nil)
+        }, onRecommendations: { _, _ in
+            try await gate.request("page", started: started)
+        }))
+        await controller.play(videoA)
+        await fulfillment(of: [started], timeout: 1)
+        controller.seek(to: 12)
+        await eventually { abs(controller.player.currentTime().seconds - 12) < 1 }
+        let selected = controller.queue.current?.id
+        let advance = Task { await controller.next() }
+        await Task.yield()
+        await controller.previous()
+        await gate.complete("page", with: .success(RecommendationPage(videos: [videoB], continuation: nil)))
+        await advance.value
+        XCTAssertEqual(controller.queue.current?.id, selected)
+        XCTAssertEqual(controller.queue.current?.video, videoA)
+        XCTAssertEqual(controller.queue.entries.map(\.video.id), [videoA.id, videoB.id])
+        await eventually { controller.player.currentTime().seconds < 1 }
+        XCTAssertEqual(controller.elapsed, 0, accuracy: 1)
+        controller.pause()
+    }
+
+    func testExplicitQueueSelectionKeepsUnavailableSuggestedEntryRetryable() async {
+        let entries = (0..<3).map { QueueEntry(video: radioVideo($0), isAutomatic: true) }
+        let controller = PlaybackController(source: StubYouTubeProvider())
+        controller.restore(QueueSnapshot(entries: entries, currentIndex: 0, radioSeed: .genre("Salsa")))
+        await controller.playQueueEntry(id: entries[1].id)
+        XCTAssertEqual(controller.queue.current?.id, entries[1].id)
+        XCTAssertEqual(controller.state.video, entries[1].video)
+        guard case .failed = controller.state else { return XCTFail("Explicit selection must stay retryable") }
+        XCTAssertTrue(controller.queue.current?.isAutomatic == true)
+    }
+
+    func testExplicitResumeKeepsUnavailableSuggestedEntryRetryable() async {
+        let entries = (0..<2).map { QueueEntry(video: radioVideo($0), isAutomatic: true) }
+        let controller = PlaybackController(source: StubYouTubeProvider())
+        controller.restore(QueueSnapshot(entries: entries, currentIndex: 0, radioSeed: .genre("Salsa")))
+        await controller.resume()
+        XCTAssertEqual(controller.queue.current?.id, entries[0].id)
+        XCTAssertEqual(controller.state.video, entries[0].video)
+        guard case .failed = controller.state else { return XCTFail("Explicit resume must stay retryable") }
+    }
+
+    func testPreviousKeepsUnavailableSuggestedEntryRetryable() async {
+        let entries = (0..<2).map { QueueEntry(video: radioVideo($0), isAutomatic: true) }
+        let controller = PlaybackController(source: StubYouTubeProvider())
+        controller.restore(QueueSnapshot(entries: entries, currentIndex: 1, radioSeed: .genre("Salsa")))
+        await controller.previous()
+        XCTAssertEqual(controller.queue.current?.id, entries[0].id)
+        XCTAssertEqual(controller.state.video, entries[0].video)
+        guard case .failed = controller.state else { return XCTFail("Previous selection must stay retryable") }
+    }
+
     func testEntireLateBatchAddedManuallyDoesNotExhaustAnAvailableContinuation() async throws {
         let audio = try audioURL()
         let gate = RequestGate<RecommendationPage>()
