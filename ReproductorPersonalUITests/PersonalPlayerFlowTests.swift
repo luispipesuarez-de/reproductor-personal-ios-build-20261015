@@ -148,13 +148,31 @@ final class PersonalPlayerFlowTests: XCTestCase {
         field.tap()
         let previous = field.value as? String ?? ""
         let count = previous == "Videos, canciones o artistas" ? 0 : previous.count
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count) + query)
+        var entered = previous == "Videos, canciones o artistas" ? "" : previous
+        for _ in 0..<count {
+            field.typeText(XCUIKeyboardKey.delete.rawValue)
+            entered.removeLast()
+            expectValue(entered, in: field)
+        }
+        for character in query {
+            field.typeText(String(character))
+            entered.append(character)
+            expectValue(entered, in: field)
+        }
         let submit = app.buttons["searchSubmit"]
         let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             field.value as? String == query && submit.isEnabled && submit.isHittable
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
         submit.tap()
+    }
+
+    private func expectValue(_ value: String, in field: XCUIElement) {
+        let entered = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let actual = field.value as? String ?? ""
+            return actual == value || (value.isEmpty && actual == field.placeholderValue)
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [entered], timeout: 5), .completed)
     }
 
     private func playFirstResult() {
