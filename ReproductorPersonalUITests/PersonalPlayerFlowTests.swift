@@ -42,6 +42,41 @@ final class PersonalPlayerFlowTests: XCTestCase {
         capture("Biblioteca y reproductor compartido")
     }
 
+    func testHistoryIsAccessibleAfterRelaunch() {
+        app.launch()
+        search("cancion")
+        playFirstResult()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["closePlayer"].tap()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-reset-library" }
+        app.launch()
+        app.tabBars.buttons["Biblioteca"].tap()
+        let history = app.buttons["Historial"]
+        XCTAssertTrue(history.waitForExistence(timeout: 5))
+        guard history.exists else { return }
+        history.tap()
+        let played = app.buttons["recent-aaaaaaaaaaa"]
+        XCTAssertTrue(played.waitForExistence(timeout: 5))
+        played.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+    }
+
+    func testShuffleMusicActionStartsStoredContent() {
+        app.launch()
+        search("cancion")
+        playFirstResult()
+        saveCurrentFavorite()
+        app.buttons["closePlayer"].tap()
+        app.tabBars.buttons["Biblioteca"].tap()
+        let shuffle = app.buttons["Mezclar mi música"]
+        XCTAssertTrue(shuffle.waitForExistence(timeout: 5))
+        guard shuffle.exists else { return }
+        shuffle.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["Mezclar cola"].exists)
+    }
+
     func testSearchEmptyAndFailureStatesRemainOperable() {
         app.launch()
         search("vacio")
