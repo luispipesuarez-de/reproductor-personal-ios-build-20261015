@@ -26,7 +26,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         search("cancion")
         playFirstResult()
         saveCurrentFavorite()
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         XCTAssertTrue(app.otherElements["miniPlayer"].exists)
         app.tabBars.buttons["Biblioteca"].tap()
         app.buttons["Favoritos"].tap()
@@ -65,7 +65,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         search("cancion")
         playFirstResult()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-reset-library" }
         app.launch()
@@ -85,7 +85,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         search("cancion")
         playFirstResult()
         saveCurrentFavorite()
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         app.tabBars.buttons["Biblioteca"].tap()
         let shuffle = app.buttons["Mezclar mi música"]
         XCTAssertTrue(shuffle.waitForExistence(timeout: 5))
@@ -114,7 +114,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         search("cancion")
         playFirstResult()
         saveCurrentFavorite()
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         XCTAssertTrue(app.otherElements["miniPlayer"].exists)
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-reset-library" }
@@ -135,7 +135,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         search("cancion")
         playFirstResult()
         XCTAssertTrue(app.buttons["closePlayer"].isHittable)
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         app.tabBars.buttons["Biblioteca"].tap()
         XCTAssertTrue(app.buttons["Favoritos"].isHittable)
         XCTAssertTrue(app.otherElements["miniPlayer"].exists)
@@ -171,7 +171,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         XCTAssertTrue(toggle.isHittable)
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "0")
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         app.buttons["genre-Rock"].tap()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertTrue(app.staticTexts["Radio Rock"].exists)
@@ -197,7 +197,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         search("cancion")
         playFirstResult()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         let field = app.textFields["searchField"]
         field.tap()
         var text = field.value as? String ?? ""
@@ -224,7 +224,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         guard salsa.exists else { return }
         salsa.tap()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["closePlayer"].tap()
+        closePlayer()
         search("cancion")
         app.buttons["actions-bbbbbbbbbbb"].tap()
         app.sheets["Más opciones"].buttons["Añadir a la cola"].firstMatch.tap()
