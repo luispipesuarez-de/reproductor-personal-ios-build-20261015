@@ -99,13 +99,14 @@ final class PlaybackPersistenceTests: PlaybackTestCase {
         await controller.play([videoA, videoB, videoA, videoB])
         await eventually(timeout: 30) { controller.state.isPlaying }
         controller.seek(to: 12)
-        await eventually { abs(controller.player.currentTime().seconds - 12) < 1 }
+        await eventually { abs(controller.player.currentTime().seconds - 12) < 1 && abs(controller.elapsed - 12) < 1 }
         let item = try XCTUnwrap(controller.player.currentItem)
         let selected = controller.queue.current?.id
         controller.shuffleUpcoming()
         XCTAssertTrue(controller.player.currentItem === item)
         XCTAssertEqual(controller.queue.current?.id, selected)
         XCTAssertEqual(controller.elapsed, 12, accuracy: 1)
+        XCTAssertEqual(controller.player.currentTime().seconds, 12, accuracy: 1)
         XCTAssertTrue(controller.state.isPlaying)
         controller.pause()
     }

@@ -46,6 +46,12 @@ final class PersonalPlayerFlowTests: XCTestCase {
         addToPlaylist.tap()
         XCTAssertTrue(app.navigationBars["Añadir a una lista"].waitForExistence(timeout: 5))
         app.buttons["Mi lista"].tap()
+        let picker = app.navigationBars["Añadir a una lista"]
+        let libraryTab = app.tabBars.buttons["Biblioteca"]
+        let pickerClosed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !picker.exists && libraryTab.isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [pickerClosed], timeout: 5), .completed)
         app.tabBars.buttons["Biblioteca"].tap()
         app.buttons["Mi lista"].tap()
         XCTAssertTrue(app.buttons["playlist-video-0"].waitForExistence(timeout: 5))

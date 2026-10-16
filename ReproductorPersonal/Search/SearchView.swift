@@ -42,6 +42,7 @@ struct SearchView: View {
             .submitLabel(.search)
             .focused($fieldFocused)
             .onSubmit(submit)
+            .onChange(of: query) { search.queryChanged($0) }
             .accessibilityLabel("Buscar videos y música")
             .accessibilityIdentifier("searchField")
     }
