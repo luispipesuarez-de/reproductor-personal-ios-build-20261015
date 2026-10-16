@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 struct RootView: View {
     @ObservedObject var search: SearchViewModel
+    @ObservedObject var discovery: DiscoveryViewModel
     @ObservedObject var playback: PlaybackController
     @ObservedObject var library: LibraryStore
     @ObservedObject var persistence: PlaybackLibraryPersistence
@@ -13,7 +14,7 @@ struct RootView: View {
         VStack(spacing: 0) {
             if let storageError = persistence.errorMessage { StorageWarning(message: storageError, retry: persistence.retry) }
             TabView {
-                SearchView(search: search, playback: playback, library: library, onPlay: openPlayer)
+                SearchView(search: search, discovery: discovery, playback: playback, library: library, onPlay: openPlayer)
                     .safeAreaInset(edge: .bottom) { miniPlayer }
                     .tabItem { Label("Buscar", systemImage: "magnifyingglass") }
                 LibraryView(library: library, playback: playback, onPlay: openPlayer)

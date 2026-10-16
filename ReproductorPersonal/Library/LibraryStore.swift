@@ -95,7 +95,8 @@ final class LibraryStore: ObservableObject {
 
     func saveQueue(_ queue: QueueSnapshot) throws {
         try mutate {
-            $0.queue = QueueSnapshot(entries: queue.entries, currentIndex: queue.currentIndex, progressSeconds: queue.progressSeconds)
+            $0.queue = QueueSnapshot(entries: queue.entries, currentIndex: queue.currentIndex, progressSeconds: queue.progressSeconds,
+                                     autoplayEnabled: queue.autoplayEnabled, radioSeed: queue.radioSeed)
         }
     }
 

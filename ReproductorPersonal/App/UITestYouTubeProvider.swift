@@ -3,7 +3,12 @@ import Foundation
 
 struct UITestYouTubeProvider: YouTubeProviding {
     func recommendations(seed: RecommendationSeed, continuation: String?) async throws -> RecommendationPage {
-        RecommendationPage(videos: [], continuation: nil)
+        guard continuation == nil else { return RecommendationPage(videos: [], continuation: nil) }
+        return RecommendationPage(videos: [
+            Video(id: "aaaaaaaaaaa", title: "Canción A", author: "Autor A", durationText: "1:00"),
+            Video(id: "bbbbbbbbbbb", title: "Video B con un título largo para comprobar la lectura", author: "Autor B"),
+            Video(id: "ccccccccccc", title: "Canción C por descubrir", author: "Autor C")
+        ], continuation: nil)
     }
 
     func search(query: String) async throws -> [Video] {

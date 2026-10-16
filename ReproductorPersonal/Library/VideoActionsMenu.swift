@@ -26,6 +26,7 @@ struct VideoActionsMenu: View {
             } label: { Label(isFavorite ? "Quitar de Favoritos" : "Guardar en Favoritos", systemImage: isFavorite ? "heart.slash" : "heart") }
             Button { showPlaylists = true } label: { Label("Añadir a una lista", systemImage: "text.badge.plus") }
             Button { playback.enqueue(video) } label: { Label("Añadir a la cola", systemImage: "list.bullet") }
+            Button { Task { await playback.startRadio(from: video) } } label: { Label("Iniciar radio", systemImage: "radio") }
             Button("Cancelar", role: .cancel) {}
         } message: { Text(video.title) }
         .sheet(isPresented: $showPlaylists) { PlaylistPickerView(video: video, library: library) }

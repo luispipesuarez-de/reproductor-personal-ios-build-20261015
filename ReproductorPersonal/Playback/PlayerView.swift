@@ -52,9 +52,11 @@ struct NowPlayingView: View {
                         progressControl
                         controls
                     } else { Text("Selecciona contenido en Buscar para reproducirlo.").foregroundStyle(.secondary) }
+                    RadioControls(playback: playback)
                     Button { showQueue = true } label: {
                         Label("Ver cola (\(playback.queue.entries.count))", systemImage: "list.bullet").frame(minHeight: 44)
                     }
+                    .accessibilityIdentifier("openQueue")
                 }.padding()
             }
             .navigationTitle("Ahora suena")

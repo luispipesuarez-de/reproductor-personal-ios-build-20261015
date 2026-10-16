@@ -5,7 +5,36 @@ actor YouTubeClient: YouTubeProviding {
     private let model = YouTubeModel()
 
     func recommendations(seed: RecommendationSeed, continuation: String?) async throws -> RecommendationPage {
-        RecommendationPage(videos: [], continuation: nil)
+        do {
+            switch seed {
+            case .video(let id):
+                _ = try await anonymousVisitor(videoID: id)
+                if let continuation {
+                    let page = try await MoreVideoInfosResponse.RecommendedVideosContinuation.sendThrowingRequest(
+                        youtubeModel: model, data: [.continuation: continuation], useCookies: false
+                    )
+                    return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true), continuation: page.continuationToken)
+                }
+                let page = try await MoreVideoInfosResponse.sendThrowingRequest(
+                    youtubeModel: model, data: [.query: id], useCookies: false
+                )
+                return RecommendationPage(videos: YouTubeMapping.videos(from: page.recommendedVideos, candidatesOnly: true), continuation: page.recommendedVideosContinuationToken)
+            case .genre(let genre):
+                if let continuation {
+                    let page = try await SearchResponse.Continuation.sendThrowingRequest(
+                        youtubeModel: model, data: [.continuation: continuation], useCookies: false
+                    )
+                    return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true), continuation: page.continuationToken)
+                }
+                let trimmed = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return RecommendationPage(videos: [], continuation: nil) }
+                let page = try await SearchResponse.sendThrowingRequest(
+                    youtubeModel: model, data: [.query: "música \(trimmed) canciones"], useCookies: false
+                )
+                if let visitor = page.visitorData, !visitor.isEmpty { model.visitorData = visitor }
+                return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true), continuation: page.continuationToken)
+            }
+        } catch { throw AppError.classify(error) }
     }
 
     func search(query: String) async throws -> [Video] {

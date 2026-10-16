@@ -2,11 +2,17 @@ import Foundation
 import YouTubeKit
 
 enum YouTubeMapping {
-    static func videos(from results: [any YTSearchResult]) -> [Video] { [] }
-
     static func videos(from response: SearchResponse) -> [Video] {
-        response.results.compactMap { result in
-            guard let video = result as? YTVideo, video.videoId.count == 11 else { return nil }
+        videos(from: response.results)
+    }
+
+    static func videos(from results: [any YTSearchResult], candidatesOnly: Bool = false) -> [Video] {
+        var seen: Set<String> = []
+        return results.compactMap { result in
+            guard let video = result as? YTVideo, video.videoId.utf8.count == 11,
+                  video.videoId.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }),
+                  !candidatesOnly || (video.memberOnly != true && !["live", "en directo", "en vivo"].contains(video.timeLength?.lowercased() ?? "")),
+                  seen.insert(video.videoId).inserted else { return nil }
             return Video(
                 id: video.videoId,
                 title: video.title ?? "Video sin título",

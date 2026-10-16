@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 struct ReproductorPersonalApp: App {
     @StateObject private var search: SearchViewModel
+    @StateObject private var discovery: DiscoveryViewModel
     @StateObject private var playback: PlaybackController
     @StateObject private var library: LibraryStore
     @StateObject private var persistence: PlaybackLibraryPersistence
@@ -23,6 +24,7 @@ struct ReproductorPersonalApp: App {
         source = YouTubeClient()
 #endif
         _search = StateObject(wrappedValue: SearchViewModel(source: source))
+        _discovery = StateObject(wrappedValue: DiscoveryViewModel(source: source))
         let playback = PlaybackController(source: source)
         let library = LibraryStore(fileURL: fileURL)
         _playback = StateObject(wrappedValue: playback)
@@ -32,7 +34,7 @@ struct ReproductorPersonalApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(search: search, playback: playback, library: library, persistence: persistence)
+            RootView(search: search, discovery: discovery, playback: playback, library: library, persistence: persistence)
 #if DEBUG
                 .modifier(UITestAppearance())
 #endif

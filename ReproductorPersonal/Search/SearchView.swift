@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 struct SearchView: View {
     @ObservedObject var search: SearchViewModel
+    @ObservedObject var discovery: DiscoveryViewModel
     @ObservedObject var playback: PlaybackController
     @ObservedObject var library: LibraryStore
     let onPlay: () -> Void
@@ -56,7 +57,14 @@ struct SearchView: View {
     @ViewBuilder private var content: some View {
         switch search.state {
         case .idle:
-            message(title: "Busca algo para escuchar", detail: "Escribe el título de un video, una canción o un artista.", symbol: "magnifyingglass")
+            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                DiscoveryView(discovery: discovery, playback: playback, library: library) {
+                    fieldFocused = false
+                    onPlay()
+                }
+            } else {
+                message(title: "Sigue escribiendo", detail: "Los resultados aparecen desde dos letras.", symbol: "magnifyingglass")
+            }
         case .loading(let query):
             List {
                 Text("Buscando «\(query)»…").foregroundStyle(.secondary)
@@ -64,7 +72,7 @@ struct SearchView: View {
                     VideoRow(video: Video(id: "", title: "Buscando contenido", author: "Autor"))
                         .redacted(reason: .placeholder).accessibilityHidden(true)
                 }
-            }.listStyle(.plain)
+            }.listStyle(.plain).scrollDismissesKeyboard(.interactively)
         case .results(_, let videos):
             List {
                 ForEach(Array(videos.enumerated()), id: \.offset) { _, video in
@@ -80,7 +88,7 @@ struct SearchView: View {
                         VideoActionsMenu(video: video, library: library, playback: playback)
                     }
                 }
-            }.listStyle(.plain)
+            }.listStyle(.plain).scrollDismissesKeyboard(.interactively)
         case .empty(let query):
             message(title: "No encontramos resultados", detail: "Prueba otro título o artista en lugar de «\(query)».", symbol: "magnifyingglass")
         case .failed(let query, let error):

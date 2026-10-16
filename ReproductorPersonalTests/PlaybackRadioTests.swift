@@ -4,6 +4,31 @@ import XCTest
 
 @MainActor
 final class PlaybackRadioTests: PlaybackTestCase {
+    func testEntireLateBatchAddedManuallyDoesNotExhaustAnAvailableContinuation() async throws {
+        let audio = try audioURL()
+        let gate = RequestGate<RecommendationPage>()
+        let started = expectation(description: "initial metadata")
+        let calls = QueryRecorder()
+        let controller = PlaybackController(source: StubYouTubeProvider(onResolve: { _ in PlaybackResource(url: audio, expiresAt: nil) }, onRecommendations: { _, cursor in
+            let page = Int(cursor ?? "0") ?? 0
+            await calls.append(String(page))
+            if page == 0 { return try await gate.request("first", started: started) }
+            return RecommendationPage(videos: page < 3 ? [videoB] : [radioVideo(0)], continuation: page < 3 ? String(page + 1) : nil)
+        }))
+        await controller.play(videoA)
+        await fulfillment(of: [started], timeout: 1)
+        controller.enqueue(videoB)
+        await gate.complete("first", with: .success(RecommendationPage(videos: [videoB], continuation: "1")))
+        await eventually { controller.radioStatus != .loading }
+        XCTAssertEqual(controller.radioStatus, .idle)
+        await controller.next()
+        await eventually { controller.queue.entries.count == 3 }
+        XCTAssertEqual(controller.queue.entries.map(\.video.id), [videoA.id, videoB.id, radioVideo(0).id])
+        let requested = await calls.queries
+        XCTAssertEqual(requested, ["0", "1", "2", "3"])
+        controller.pause()
+    }
+
     func testConcurrentAdvanceSharesOneRefillAndCannotAdvanceTwiceFromItsOldSelection() async throws {
         let audio = try audioURL()
         let gate = RequestGate<RecommendationPage>()

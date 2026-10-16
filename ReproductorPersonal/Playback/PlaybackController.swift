@@ -21,6 +21,11 @@ enum PlaybackState: Equatable {
     }
 }
 
+enum RadioStatus: Equatable {
+    case idle, loading, exhausted
+    case failed(String)
+}
+
 @MainActor
 final class PlaybackController: ObservableObject {
     let player: AVQueuePlayer
@@ -32,10 +37,15 @@ final class PlaybackController: ObservableObject {
     @Published private(set) var duration: Double?
     // ponytail: one app session owns persistence; use a publisher only for multiple owners.
     var onPlaybackChange: (() -> Void)?
-    func startRadio(genre: String) async {}
-    func startRadio(from video: Video) async {}
-    func setAutoplayEnabled(_ enabled: Bool) {}
+    @Published private(set) var autoplayEnabled = true { didSet { onPlaybackChange?() } }
+    @Published private(set) var radioSeed: RecommendationSeed? { didSet { onPlaybackChange?() } }
+    @Published private(set) var radioStatus: RadioStatus = .idle
     private let source: any YouTubeProviding
+    private let radio: RadioSession
+    private var refillTask: Task<Void, Never>?
+    private var radioGeneration = UUID()
+    private var radioStartPending = false
+    private var automaticFailures = 0
     private var requestID = UUID()
     private var activeEntryID: UUID?
     private var activeResource: PlaybackResource?
@@ -66,6 +76,7 @@ final class PlaybackController: ObservableObject {
 
     init(source: any YouTubeProviding, player: AVQueuePlayer = AVQueuePlayer()) {
         self.source = source
+        self.radio = RadioSession(source: source)
         self.player = player
         player.actionAtItemEnd = .pause
         player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
@@ -81,6 +92,7 @@ final class PlaybackController: ObservableObject {
 
     deinit {
         prefetchTask?.cancel()
+        refillTask?.cancel()
         if let periodicObserver { player.removeTimeObserver(periodicObserver) }
         for token in itemNotifications + audioNotifications { NotificationCenter.default.removeObserver(token) }
     }
@@ -91,12 +103,51 @@ final class PlaybackController: ObservableObject {
     }
 
     func play(_ videos: [Video], startingAt index: Int = 0) async {
+        resetRadio(seed: videos.last.map { .video($0.id) })
         clearNativeItems()
         queue = PlaybackQueue(entries: videos.map { QueueEntry(video: $0) }, currentIndex: index)
         recoveredEntries.removeAll()
         elapsed = 0
         guard queue.current != nil else { state = .idle; return }
         await startCurrent(progress: 0)
+    }
+
+    func startRadio(from video: Video) async {
+        autoplayEnabled = true
+        await play([video])
+    }
+
+    func startRadio(genre: String) async {
+        let trimmed = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        autoplayEnabled = true
+        resetRadio(seed: .genre(trimmed), starting: true)
+        let previousNext = nextEntry?.id
+        queue.removeUpcomingAutomatic()
+        refreshPreparedNext(previousID: previousNext)
+        requestRadioRefill(replacingQueue: true)
+        if let refillTask { await refillTask.value }
+    }
+
+    func setAutoplayEnabled(_ enabled: Bool) {
+        guard enabled != autoplayEnabled else { return }
+        autoplayEnabled = enabled
+        let seed = radioSeed ?? queue.entries.last.map { .video($0.video.id) }
+        resetRadio(seed: seed)
+        if enabled { requestRadioRefill() }
+        else {
+            let previousNext = nextEntry?.id
+            queue.removeUpcomingAutomatic()
+            refreshPreparedNext(previousID: previousNext)
+        }
+    }
+
+    func retryRadio() async {
+        guard autoplayEnabled, let seed = radioSeed else { return }
+        let starting = radioStartPending
+        resetRadio(seed: seed, starting: starting)
+        requestRadioRefill(replacingQueue: starting)
+        if let refillTask { await refillTask.value }
     }
 
     func pause() {
@@ -114,6 +165,11 @@ final class PlaybackController: ObservableObject {
 
     func resume() async {
         guard let entry = queue.current else { return }
+        if radioSeed == nil {
+            let lastManual = queue.entries.last(where: { !$0.isAutomatic }) ?? entry
+            resetRadio(seed: .video(lastManual.video.id))
+        }
+        if isFailed { automaticFailures = 0 }
         if isFailed || activeEntryID != entry.id || player.currentItem == nil || player.currentItem?.status == .failed || isExpired(activeResource) {
             recoveredEntries.remove(entry.id) // Explicit user retry has its own bounded recovery.
             clearNativeItems()
@@ -136,14 +192,16 @@ final class PlaybackController: ObservableObject {
             state = .loading(entry.video)
             player.play()
             prepareNext()
+            requestRadioRefill()
         } catch { fail(error) }
     }
 
     func enqueue(_ video: Video) {
         let hadSelection = queue.current != nil
+        let previousNext = nextEntry?.id
         queue.append(video)
         if !hadSelection, let selected = queue.current?.video { state = .paused(selected) }
-        prepareNext()
+        refreshPreparedNext(previousID: previousNext)
     }
 
     func removeQueueEntry(id: UUID) async {
@@ -154,6 +212,7 @@ final class PlaybackController: ObservableObject {
         if removedCurrent {
             clearNativeItems()
             elapsed = 0
+            if queue.entries.isEmpty { resetRadio(seed: nil) }
             state = queue.current.map { .paused($0.video) } ?? .idle
         } else {
             discardPrepared()
@@ -162,7 +221,15 @@ final class PlaybackController: ObservableObject {
     }
 
     func next() async {
+        let selected = queue.current?.id
+        let transport = requestID
+        if queue.upcomingCount == 0 {
+            requestRadioRefill()
+            if let refillTask { await refillTask.value }
+            guard queue.current?.id == selected, requestID == transport, !Task.isCancelled else { return }
+        }
         guard queue.next() != nil else { pause(); return }
+        trimPast()
         await startCurrent(progress: 0, usePrepared: true)
     }
 
@@ -170,6 +237,7 @@ final class PlaybackController: ObservableObject {
         guard queue.entries.contains(where: { $0.id == id }) else { return }
         if case .loading = state, queue.current?.id == id { return }
         queue.select(id: id)
+        trimPast()
         await startCurrent(progress: 0, usePrepared: true)
     }
 
@@ -199,11 +267,14 @@ final class PlaybackController: ObservableObject {
         let native = player.currentTime().seconds
         let ownsNativeProgress = activeEntryID == queue.current?.id && player.currentItem != nil
         return QueueSnapshot(entries: queue.entries, currentIndex: queue.currentIndex,
-                             progressSeconds: ownsNativeProgress && native.isFinite ? native : elapsed)
+                             progressSeconds: ownsNativeProgress && native.isFinite ? native : elapsed,
+                             autoplayEnabled: autoplayEnabled, radioSeed: radioSeed)
     }
 
     func restore(_ snapshot: QueueSnapshot) {
         clearNativeItems()
+        autoplayEnabled = snapshot.autoplayEnabled
+        resetRadio(seed: snapshot.radioSeed)
         queue = PlaybackQueue(entries: snapshot.entries, currentIndex: snapshot.currentIndex)
         elapsed = snapshot.progressSeconds.isFinite ? max(0, snapshot.progressSeconds) : 0
         if queue.current == nil { elapsed = 0 }
@@ -213,7 +284,10 @@ final class PlaybackController: ObservableObject {
 
     func handlePlaybackFailure(entryID: UUID, progressSeconds: Double) async {
         guard queue.current?.id == entryID, recoveringEntryID != entryID else { return }
-        guard isExpired(activeResource), !recoveredEntries.contains(entryID) else { fail(AppError.unavailable); return }
+        guard isExpired(activeResource), !recoveredEntries.contains(entryID) else {
+            await handleCurrentFailure(AppError.unavailable)
+            return
+        }
         recoveredEntries.insert(entryID)
         recoveringEntryID = entryID
         let shouldPlay = wantsPlayback
@@ -254,6 +328,81 @@ final class PlaybackController: ObservableObject {
     private var nextEntry: QueueEntry? {
         guard let index = queue.currentIndex, queue.entries.indices.contains(index + 1) else { return nil }
         return queue.entries[index + 1]
+    }
+
+    private func resetRadio(seed: RecommendationSeed?, starting: Bool = false) {
+        radioGeneration = UUID()
+        refillTask?.cancel()
+        refillTask = nil
+        radio.reset(seed: autoplayEnabled ? seed : nil)
+        radioSeed = seed
+        radioStartPending = starting
+        automaticFailures = 0
+        radioStatus = .idle
+    }
+
+    private func requestRadioRefill(replacingQueue: Bool = false) {
+        guard autoplayEnabled, radioSeed != nil, refillTask == nil,
+              replacingQueue || queue.upcomingCount <= 2, radioStatus != .exhausted else { return }
+        if case .failed = radioStatus { return }
+        guard radio.hasMore else {
+            if queue.upcomingCount == 0 { radioStatus = .exhausted }
+            return
+        }
+        let generation = radioGeneration
+        let selection = queue.current?.id
+        let transport = requestID
+        let excluded = Set(queue.entries.map(\.video.id))
+        radioStatus = .loading
+        refillTask = Task { [weak self, radio] in
+            let result: Result<[Video], Error>
+            do { result = .success(try await radio.batch(excluding: excluded, limit: 10)) }
+            catch { result = .failure(error) }
+            guard let self, !Task.isCancelled, self.radioGeneration == generation else { return }
+            // A startup failure can call next(); it must never await this same task.
+            self.refillTask = nil
+            switch result {
+            case .failure(let error): self.radioStatus = .failed(AppError.classify(error).localizedDescription)
+            case .success(let candidates):
+                let currentIDs = Set(self.queue.entries.map(\.video.id))
+                let fresh = candidates.filter { !currentIDs.contains($0.id) }
+                guard !fresh.isEmpty else { self.radioStatus = .exhausted; return }
+                self.radioStatus = .idle
+                self.radioStartPending = false
+                if replacingQueue, self.queue.current?.id == selection, self.requestID == transport {
+                    self.clearNativeItems()
+                    self.queue = PlaybackQueue(entries: fresh.map { QueueEntry(video: $0, isAutomatic: true) }, currentIndex: 0)
+                    self.recoveredEntries.removeAll()
+                    self.elapsed = 0
+                    await self.startCurrent(progress: 0)
+                } else {
+                    let hadSelection = self.queue.current != nil
+                    let previousNext = self.nextEntry?.id
+                    self.queue.appendAutomatic(fresh)
+                    if !hadSelection, let entry = self.queue.current { self.state = .paused(entry.video) }
+                    self.refreshPreparedNext(previousID: previousNext)
+                }
+            }
+        }
+    }
+
+    private func refreshPreparedNext(previousID: UUID?) {
+        guard previousID != nextEntry?.id else { return }
+        discardPrepared()
+        prepareNext()
+    }
+
+    private func trimPast() {
+        queue.trimPast(keeping: 50)
+        recoveredEntries.formIntersection(Set(queue.entries.map(\.id)))
+    }
+
+    private func handleCurrentFailure(_ error: Error) async {
+        let shouldContinue = wantsPlayback && !isInterrupted
+        fail(error)
+        guard shouldContinue, autoplayEnabled, queue.current?.isAutomatic == true else { return }
+        automaticFailures += 1
+        if automaticFailures < 3 { await next() }
     }
 
     private func startCurrent(progress: Double, autoplay: Bool = true, usePrepared: Bool = false) async {
@@ -303,10 +452,11 @@ final class PlaybackController: ObservableObject {
             if autoplay { player.play() }
             else { state = .paused(entry.video) }
             prepareNext()
+            requestRadioRefill()
         } catch {
             guard requestID == currentRequest else { return }
             guard !Task.isCancelled else { pause(); return }
-            fail(error)
+            await handleCurrentFailure(error)
         }
     }
 
@@ -408,6 +558,7 @@ final class PlaybackController: ObservableObject {
         switch player.timeControlStatus {
         case .playing:
             wantsPlayback = true
+            automaticFailures = 0
             nativeEndCandidateEntryID = nil
             state = .playing(entry.video)
         case .paused:

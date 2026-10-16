@@ -7,6 +7,7 @@ struct QueueView: View {
     var body: some View {
         NavigationStack {
             List {
+                Section { RadioControls(playback: playback) }
                 if playback.queue.entries.isEmpty { Text("Añade contenido desde Buscar para formar tu cola.").foregroundStyle(.secondary) }
                 ForEach(playback.queue.entries) { entry in
                     Button { Task { await playback.playQueueEntry(id: entry.id) } } label: {
@@ -14,10 +15,15 @@ struct QueueView: View {
                             if playback.queue.current?.id == entry.id {
                                 Image(systemName: "speaker.wave.2.fill").foregroundStyle(.tint).accessibilityLabel("Selección actual")
                             }
-                            VideoRow(video: entry.video)
+                            VStack(alignment: .leading, spacing: 4) {
+                                VideoRow(video: entry.video)
+                                Text(entry.isAutomatic ? "Sugerida" : "Añadida por ti").font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("queue-\(entry.video.id)")
+                    .accessibilityValue(position(of: entry) + " · " + (entry.isAutomatic ? "Sugerida" : "Añadida por ti"))
                     .accessibilityHint("Reproduce esta entrada de la cola")
                 }
                 .onDelete { offsets in
@@ -39,5 +45,13 @@ struct QueueView: View {
                 ToolbarItem(placement: .confirmationAction) { Button("Cerrar") { dismiss() } }
             }
         }
+    }
+
+    private func position(of entry: QueueEntry) -> String {
+        guard let current = playback.queue.currentIndex,
+              let index = playback.queue.entries.firstIndex(where: { $0.id == entry.id }) else { return "En cola" }
+        if index == current { return "Ahora suena" }
+        if index == current + 1 { return "A continuación" }
+        return index < current ? "Ya escuchada" : "En cola"
     }
 }
