@@ -94,9 +94,9 @@ final class SystemMediaArtworkTests: PlaybackTestCase {
         let controls = SystemMediaControls(controller: controller, artworkLoader: { _ in png })
         controls.update(video: track(videoA, image: "a"), elapsed: 0, duration: nil, isPlaying: true)
         await eventually { self.artwork != nil }
-        let image = try XCTUnwrap(artwork)
-        XCTAssertLessThanOrEqual(image.boundsSize.width, 600)
-        XCTAssertLessThanOrEqual(image.boundsSize.height, 600)
+        let image = try XCTUnwrap(artwork?.image(at: CGSize(width: 1400, height: 800)))
+        XCTAssertLessThanOrEqual(image.size.width * image.scale, 600)
+        XCTAssertLessThanOrEqual(image.size.height * image.scale, 600)
         withExtendedLifetime(controls) {}
     }
 
