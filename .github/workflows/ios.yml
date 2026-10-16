@@ -2,6 +2,10 @@ name: iOS
 on:
   workflow_dispatch:
     inputs:
+      unit_only:
+        description: Solo unitarias para comprobar una regresión de lógica
+        type: boolean
+        default: false
       package_ipa:
         description: Generar también el IPA Release
         type: boolean
@@ -26,7 +30,19 @@ jobs:
           xcodebuild -version
           xcodegen --version
       - name: XCTest en iPhone simulado
-        run: bash scripts/ci.sh test
+        env:
+          UNIT_TESTS_ONLY: ${{ inputs.unit_only }}
+          PACKAGE_IPA: ${{ inputs.package_ipa }}
+        run: |
+          if [ "$UNIT_TESTS_ONLY" = true ]; then
+            if [ "$PACKAGE_IPA" = true ]; then
+              echo "El IPA requiere ejecutar también las pruebas de interfaz." >&2
+              exit 2
+            fi
+            bash scripts/ci.sh test-unit
+          else
+            bash scripts/ci.sh test
+          fi
       - name: Exportar capturas de interfaz
         if: always()
         continue-on-error: true

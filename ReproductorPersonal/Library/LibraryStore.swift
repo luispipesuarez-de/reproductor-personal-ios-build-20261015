@@ -16,6 +16,8 @@ final class LibraryStore: ObservableObject {
 
     init(fileURL: URL) { self.fileURL = fileURL }
 
+    var allMusic: [Video] { [] }
+
     func load() throws {
         do {
             let data: Data

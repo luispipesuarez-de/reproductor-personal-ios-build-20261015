@@ -50,4 +50,8 @@ struct PlaybackQueue: Equatable {
         currentIndex = index - 1
         return current
     }
+
+    mutating func shuffleUpcoming() {}
+
+    mutating func shuffleUpcoming<R: RandomNumberGenerator>(using generator: inout R) {}
 }

@@ -2,6 +2,28 @@ import XCTest
 @testable import ReproductorPersonal
 
 final class PlaybackQueueTests: XCTestCase {
+    func testShuffleKeepsCurrentPrefixAndEntryIdentities() {
+        let entries = (0..<8).map { index in
+            QueueEntry(video: Video(id: "track-\(index)", title: "Tema \(index)", author: "Artista"))
+        }
+        var queue = PlaybackQueue(entries: entries, currentIndex: 1)
+        var random = SeededQueueGenerator(seed: 42)
+        queue.shuffleUpcoming(using: &random)
+        XCTAssertEqual(queue.currentIndex, 1)
+        XCTAssertEqual(queue.current?.id, entries[1].id)
+        XCTAssertEqual(Array(queue.entries.prefix(2)), Array(entries.prefix(2)))
+        XCTAssertEqual(Set(queue.entries.dropFirst(2).map(\.id)), Set(entries.dropFirst(2).map(\.id)))
+        XCTAssertNotEqual(Array(queue.entries.dropFirst(2).map(\.id)), Array(entries.dropFirst(2).map(\.id)))
+    }
+
+    func testShuffleWithNoUpcomingEntriesKeepsSelection() {
+        let entry = QueueEntry(video: videoA)
+        var queue = PlaybackQueue(entries: [entry], currentIndex: 0)
+        queue.shuffleUpcoming()
+        XCTAssertEqual(queue.entries, [entry])
+        XCTAssertEqual(queue.current?.id, entry.id)
+    }
+
     func testRepeatedVideoKeepsIndependentQueueEntries() {
         var queue = PlaybackQueue()
         queue.append(videoA)
@@ -77,5 +99,15 @@ final class PlaybackQueueTests: XCTestCase {
             let snapshot = QueueSnapshot(entries: [QueueEntry(video: videoA)], currentIndex: 0, progressSeconds: seconds)
             XCTAssertEqual(snapshot.progressSeconds, 0)
         }
+    }
+}
+
+private struct SeededQueueGenerator: RandomNumberGenerator {
+    var seed: UInt64
+    mutating func next() -> UInt64 {
+        seed ^= seed << 13
+        seed ^= seed >> 7
+        seed ^= seed << 17
+        return seed
     }
 }

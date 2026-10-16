@@ -3,6 +3,20 @@ import XCTest
 
 @MainActor
 final class LibraryStoreTests: XCTestCase {
+    func testAllMusicCombinesCollectionsWithoutDuplicateVideoIDs() throws {
+        let store = LibraryStore(fileURL: try libraryURL())
+        let videoC = Video(id: "ccccccccccc", title: "Canción C", author: "Autor C")
+        try store.setFavorite(videoA, enabled: true)
+        let list = try store.createPlaylist(name: "Mi música")
+        try store.add(videoA, to: list)
+        try store.add(videoB, to: list)
+        try store.add(videoA, to: list)
+        try store.recordRecent(videoC)
+        try store.recordRecent(videoB)
+        XCTAssertEqual(store.allMusic.map(\.id), ["aaaaaaaaaaa", "bbbbbbbbbbb", "ccccccccccc"])
+        XCTAssertEqual(store.snapshot.playlists.first?.videos.map(\.id), ["aaaaaaaaaaa", "bbbbbbbbbbb", "aaaaaaaaaaa"])
+    }
+
     func testRoundTripPreservesLibraryAndQueue() throws {
         let url = try libraryURL()
         let store = LibraryStore(fileURL: url)

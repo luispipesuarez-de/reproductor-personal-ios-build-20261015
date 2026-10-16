@@ -171,6 +171,8 @@ final class PlaybackController: ObservableObject {
         await startCurrent(progress: 0)
     }
 
+    func shuffleUpcoming() {}
+
     func seek(to seconds: Double) {
         let normalized = seconds.isFinite ? max(0, seconds) : 0
         let target = duration.map { min($0, normalized) } ?? normalized
