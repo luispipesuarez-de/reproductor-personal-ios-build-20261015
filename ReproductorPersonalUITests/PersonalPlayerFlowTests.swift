@@ -206,6 +206,11 @@ final class PersonalPlayerFlowTests: XCTestCase {
             text.removeLast()
             expectValue(text, in: field)
         }
+        field.typeText("\n")
+        let keyboardClosed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !self.app.keyboards.firstMatch.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardClosed], timeout: 5), .completed)
         let recommended = app.staticTexts["Para ti"]
         for _ in 0..<6 where !recommended.isHittable { app.swipeUp() }
         XCTAssertTrue(recommended.exists)
