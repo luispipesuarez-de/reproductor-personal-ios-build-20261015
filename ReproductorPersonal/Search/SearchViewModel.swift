@@ -15,7 +15,9 @@ final class SearchViewModel: ObservableObject {
     private let source: any YouTubeProviding
     private var requestID = UUID()
 
-    init(source: any YouTubeProviding) { self.source = source }
+    init(source: any YouTubeProviding, debounceNanoseconds: UInt64 = 400_000_000) { self.source = source }
+
+    func queryChanged(_ query: String) {}
 
     func submit(query: String) async {
         let currentRequest = UUID()

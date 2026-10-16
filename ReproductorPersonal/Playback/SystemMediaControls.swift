@@ -4,7 +4,7 @@ import MediaPlayer
 final class SystemMediaControls {
     private var handlers: [(MPRemoteCommand, Any)] = []
 
-    init(controller: PlaybackController) {
+    init(controller: PlaybackController, artworkLoader: (@Sendable (URL) async throws -> Data)? = nil) {
         let center = MPRemoteCommandCenter.shared()
         func register(_ command: MPRemoteCommand, action: @escaping @MainActor (PlaybackController) async -> Void) {
             command.isEnabled = true

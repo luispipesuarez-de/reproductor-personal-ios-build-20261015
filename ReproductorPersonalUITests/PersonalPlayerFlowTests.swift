@@ -9,6 +9,18 @@ final class PersonalPlayerFlowTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--ui-reset-library", "-AppleLanguages", "(es)", "-AppleLocale", "es_CO"]
     }
 
+    func testTypingShowsPlayableResultsWithoutSubmitting() {
+        app.launch()
+        let field = app.textFields["searchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("tu con el")
+        XCTAssertTrue(app.buttons["result-aaaaaaaaaaa"].waitForExistence(timeout: 8))
+        XCTAssertEqual(field.value as? String, "tu con el")
+        app.buttons["result-aaaaaaaaaaa"].tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+    }
+
     func testSearchToFavoriteAndPlaylist() {
         app.launch()
         search("cancion")
