@@ -43,7 +43,7 @@ struct ReproductorPersonalApp: App {
 }
 
 #if DEBUG
-private struct UITestAppearance: ViewModifier {
+struct UITestAppearance: ViewModifier {
     @Environment(\.dynamicTypeSize) private var size
     private let arguments = ProcessInfo.processInfo.arguments
     func body(content: Content) -> some View {

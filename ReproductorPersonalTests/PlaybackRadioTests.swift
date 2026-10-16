@@ -44,8 +44,12 @@ final class PlaybackRadioTests: PlaybackTestCase {
         controller.seek(to: 12)
         await eventually { abs(controller.player.currentTime().seconds - 12) < 1 }
         let selected = controller.queue.current?.id
-        let advance = Task { await controller.next() }
-        await Task.yield()
+        let advancing = expectation(description: "Next entered before Previous")
+        let advance = Task {
+            advancing.fulfill()
+            await controller.next()
+        }
+        await fulfillment(of: [advancing], timeout: 1)
         await controller.previous()
         await gate.complete("page", with: .success(RecommendationPage(videos: [videoB], continuation: nil)))
         await advance.value

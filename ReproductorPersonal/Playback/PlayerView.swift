@@ -71,7 +71,12 @@ struct NowPlayingView: View {
                     Button("Cerrar") { dismiss() }.accessibilityIdentifier("closePlayer")
                 }
             }
-            .sheet(isPresented: $showQueue) { QueueView(playback: playback) }
+            .sheet(isPresented: $showQueue) {
+                QueueView(playback: playback)
+#if DEBUG
+                    .modifier(UITestAppearance())
+#endif
+            }
         }
     }
 

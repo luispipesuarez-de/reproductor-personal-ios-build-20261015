@@ -46,7 +46,9 @@ final class PlaybackController: ObservableObject {
     private var radioGeneration = UUID()
     private var radioStartPending = false
     private var automaticFailures = 0
+    private var allowsAutomaticFailureSkip = false
     private var requestID = UUID()
+    private var navigationID = UUID()
     private var activeEntryID: UUID?
     private var activeResource: PlaybackResource?
     private var wantsPlayback = false
@@ -98,6 +100,8 @@ final class PlaybackController: ObservableObject {
     }
 
     func play(_ video: Video) async {
+        allowsAutomaticFailureSkip = false
+        navigationID = UUID()
         if case .loading(let current) = state, current.id == video.id { return }
         await play([video])
     }
@@ -163,8 +167,9 @@ final class PlaybackController: ObservableObject {
         state = .paused(video)
     }
 
-    func resume() async {
+    func resume(allowAutomaticSkip: Bool = false) async {
         guard let entry = queue.current else { return }
+        allowsAutomaticFailureSkip = allowAutomaticSkip
         if radioSeed == nil {
             let lastManual = queue.entries.last(where: { !$0.isAutomatic }) ?? entry
             resetRadio(seed: .video(lastManual.video.id))
@@ -173,7 +178,7 @@ final class PlaybackController: ObservableObject {
         if isFailed || activeEntryID != entry.id || player.currentItem == nil || player.currentItem?.status == .failed || isExpired(activeResource) {
             recoveredEntries.remove(entry.id) // Explicit user retry has its own bounded recovery.
             clearNativeItems()
-            await startCurrent(progress: elapsed)
+            await startCurrent(progress: elapsed, allowAutomaticSkip: allowAutomaticSkip)
             return
         }
         let currentRequest = UUID()
@@ -223,18 +228,22 @@ final class PlaybackController: ObservableObject {
     func next() async {
         let selected = queue.current?.id
         let transport = requestID
+        let navigation = navigationID
         if queue.upcomingCount == 0 {
             requestRadioRefill()
             if let refillTask { await refillTask.value }
-            guard queue.current?.id == selected, requestID == transport, !Task.isCancelled else { return }
+            guard queue.current?.id == selected, requestID == transport,
+                  navigationID == navigation, !Task.isCancelled else { return }
         }
         guard queue.next() != nil else { pause(); return }
         trimPast()
-        await startCurrent(progress: 0, usePrepared: true)
+        await startCurrent(progress: 0, usePrepared: true, allowAutomaticSkip: true)
     }
 
     func playQueueEntry(id: UUID) async {
         guard queue.entries.contains(where: { $0.id == id }) else { return }
+        allowsAutomaticFailureSkip = false
+        navigationID = UUID()
         if case .loading = state, queue.current?.id == id { return }
         queue.select(id: id)
         trimPast()
@@ -253,6 +262,8 @@ final class PlaybackController: ObservableObject {
     }
 
     func seek(to seconds: Double) {
+        navigationID = UUID()
+        allowsAutomaticFailureSkip = false
         let normalized = seconds.isFinite ? max(0, seconds) : 0
         let target = duration.map { min($0, normalized) } ?? normalized
         elapsed = target
@@ -273,6 +284,7 @@ final class PlaybackController: ObservableObject {
 
     func restore(_ snapshot: QueueSnapshot) {
         clearNativeItems()
+        allowsAutomaticFailureSkip = false
         autoplayEnabled = snapshot.autoplayEnabled
         resetRadio(seed: snapshot.radioSeed)
         queue = PlaybackQueue(entries: snapshot.entries, currentIndex: snapshot.currentIndex)
@@ -291,7 +303,8 @@ final class PlaybackController: ObservableObject {
         recoveredEntries.insert(entryID)
         recoveringEntryID = entryID
         let shouldPlay = wantsPlayback
-        await startCurrent(progress: progressSeconds, autoplay: shouldPlay)
+        await startCurrent(progress: progressSeconds, autoplay: shouldPlay,
+                           allowAutomaticSkip: allowsAutomaticFailureSkip)
         if recoveringEntryID == entryID { recoveringEntryID = nil }
     }
 
@@ -315,7 +328,7 @@ final class PlaybackController: ObservableObject {
                 let interruptionRequest = requestID
                 Task { [weak self] in
                     guard let self, self.wantsPlayback, self.requestID == interruptionRequest else { return }
-                    await self.resume()
+                    await self.resume(allowAutomaticSkip: self.allowsAutomaticFailureSkip)
                 }
             }
             else { wantsPlayback = false }
@@ -352,6 +365,8 @@ final class PlaybackController: ObservableObject {
         let generation = radioGeneration
         let selection = queue.current?.id
         let transport = requestID
+        let navigation = navigationID
+        let originalEntryIDs = Set(queue.entries.map(\.id))
         let excluded = Set(queue.entries.map(\.video.id))
         radioStatus = .loading
         refillTask = Task { [weak self, radio] in
@@ -372,12 +387,15 @@ final class PlaybackController: ObservableObject {
                 }
                 self.radioStatus = .idle
                 self.radioStartPending = false
-                if replacingQueue, self.queue.current?.id == selection, self.requestID == transport {
+                if replacingQueue, self.queue.current?.id == selection, self.requestID == transport,
+                   self.navigationID == navigation {
+                    let manual = self.queue.entries.filter { !$0.isAutomatic && !originalEntryIDs.contains($0.id) }
+                    let automatic = fresh.map { QueueEntry(video: $0, isAutomatic: true) }
                     self.clearNativeItems()
-                    self.queue = PlaybackQueue(entries: fresh.map { QueueEntry(video: $0, isAutomatic: true) }, currentIndex: 0)
+                    self.queue = PlaybackQueue(entries: [automatic[0]] + manual + Array(automatic.dropFirst()), currentIndex: 0)
                     self.recoveredEntries.removeAll()
                     self.elapsed = 0
-                    await self.startCurrent(progress: 0)
+                    await self.startCurrent(progress: 0, allowAutomaticSkip: true)
                 } else {
                     let hadSelection = self.queue.current != nil
                     let previousNext = self.nextEntry?.id
@@ -403,13 +421,16 @@ final class PlaybackController: ObservableObject {
     private func handleCurrentFailure(_ error: Error) async {
         let shouldContinue = wantsPlayback && !isInterrupted
         fail(error)
-        guard shouldContinue, autoplayEnabled, queue.current?.isAutomatic == true else { return }
+        guard shouldContinue, autoplayEnabled, allowsAutomaticFailureSkip,
+              queue.current?.isAutomatic == true else { return }
         automaticFailures += 1
         if automaticFailures < 3 { await next() }
     }
 
-    private func startCurrent(progress: Double, autoplay: Bool = true, usePrepared: Bool = false) async {
+    private func startCurrent(progress: Double, autoplay: Bool = true, usePrepared: Bool = false,
+                              allowAutomaticSkip: Bool = false) async {
         guard let entry = queue.current else { return }
+        allowsAutomaticFailureSkip = allowAutomaticSkip
         let cached = usePrepared && prepared?.id == entry.id ? prepared : nil
         // Keep a prepared native item long enough to advance the same AVQueuePlayer.
         prefetchTask?.cancel()
@@ -558,6 +579,9 @@ final class PlaybackController: ObservableObject {
         }
         guard item.status == .readyToPlay else { return }
         updateProgress()
+        if !wantsPlayback, player.timeControlStatus != .paused {
+            allowsAutomaticFailureSkip = false
+        }
         switch player.timeControlStatus {
         case .playing:
             wantsPlayback = true

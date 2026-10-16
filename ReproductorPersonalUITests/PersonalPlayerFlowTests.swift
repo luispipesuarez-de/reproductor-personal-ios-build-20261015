@@ -14,7 +14,12 @@ final class PersonalPlayerFlowTests: XCTestCase {
         let field = app.textFields["searchField"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         field.tap()
-        field.typeText("tu con el")
+        var entered = ""
+        for character in "tu con el" {
+            field.typeText(String(character))
+            entered.append(character)
+            expectValue(entered, in: field)
+        }
         XCTAssertTrue(app.buttons["result-aaaaaaaaaaa"].waitForExistence(timeout: 8))
         XCTAssertEqual(field.value as? String, "tu con el")
         app.buttons["result-aaaaaaaaaaa"].tap()

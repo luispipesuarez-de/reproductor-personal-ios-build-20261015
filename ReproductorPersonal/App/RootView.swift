@@ -24,6 +24,9 @@ struct RootView: View {
         }
         .sheet(isPresented: $showPlayer) {
             NowPlayingView(playback: playback, library: library, storageError: persistence.errorMessage, retryStorage: persistence.retry)
+#if DEBUG
+                .modifier(UITestAppearance())
+#endif
         }
         .task { persistence.load() }
         .onChange(of: scenePhase) { if $0 == .background { persistence.save() } }
