@@ -1,4 +1,5 @@
 import AVFoundation
+import Combine
 import XCTest
 @testable import ReproductorPersonal
 
@@ -133,6 +134,24 @@ final class PlaybackPersistenceTests: PlaybackTestCase {
         XCTAssertEqual(reopenedPlayback.state, .paused(videoA))
         XCTAssertNil(reopenedPlayback.player.currentItem)
         XCTAssertEqual(reopenedPlayback.player.rate, 0)
+    }
+
+    func testNewSelectionSnapshotDoesNotUsePreviousTrackProgress() async throws {
+        let audio = try audioURL()
+        let controller = PlaybackController(source: StubYouTubeProvider(onResolve: { _ in PlaybackResource(url: audio, expiresAt: nil) }))
+        await controller.play([videoA, videoB])
+        await eventually(timeout: 30) { controller.state.isPlaying && controller.player.items().count == 2 }
+        controller.seek(to: 12)
+        await eventually { abs(controller.player.currentTime().seconds - 12) < 1 }
+        var firstSnapshot: QueueSnapshot?
+        let observation = controller.$state.sink { state in
+            if state == .loading(videoB), firstSnapshot == nil { firstSnapshot = controller.snapshot() }
+        }
+        await controller.next()
+        XCTAssertEqual(firstSnapshot?.currentIndex, 1)
+        XCTAssertEqual(firstSnapshot?.progressSeconds ?? -1, 0, accuracy: 0.1)
+        controller.pause()
+        withExtendedLifetime(observation) {}
     }
 
     private func libraryURL() throws -> URL {
