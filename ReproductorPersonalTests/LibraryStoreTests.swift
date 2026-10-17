@@ -3,6 +3,41 @@ import XCTest
 
 @MainActor
 final class LibraryStoreTests: XCTestCase {
+    func testLibraryMutationsPreserveSavedGenresFromDisk() throws {
+        let url = try libraryURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let original = Data(#"{"schemaVersion":1,"favorites":[],"playlists":[],"recent":[],"customGenres":["Jazz","Soul"]}"#.utf8)
+        try original.write(to: url)
+        let store = LibraryStore(fileURL: url)
+        try store.setFavorite(videoA, enabled: true)
+        let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        XCTAssertEqual(saved["customGenres"] as? [String], ["Jazz", "Soul"])
+        let reopened = LibraryStore(fileURL: url)
+        try reopened.load()
+        XCTAssertEqual(reopened.snapshot.favorites, [videoA])
+    }
+
+    func testLibraryFromPreviousVersionStillLoadsAndPreservesCollections() throws {
+        let url = try libraryURL()
+        let original = LibraryStore(fileURL: url)
+        try original.setFavorite(videoA, enabled: true)
+        try original.recordRecent(videoB)
+        let list = try original.createPlaylist(name: "Mi lista")
+        try original.add(videoA, to: list)
+        try original.saveQueue(QueueSnapshot(entries: [QueueEntry(video: videoB)], currentIndex: 0, progressSeconds: 12))
+        let snapshot = original.snapshot
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        legacy.removeValue(forKey: "customGenres")
+        try JSONSerialization.data(withJSONObject: legacy).write(to: url)
+        let reopened = LibraryStore(fileURL: url)
+        try reopened.load()
+        XCTAssertEqual(reopened.snapshot, snapshot)
+        try reopened.setFavorite(videoB, enabled: true)
+        XCTAssertEqual(reopened.snapshot.favorites, [videoA, videoB])
+        XCTAssertEqual(reopened.snapshot.queue?.progressSeconds, 12)
+        XCTAssertEqual(reopened.snapshot.playlists.first?.videos, [videoA])
+    }
+
     func testAllMusicCombinesCollectionsWithoutDuplicateVideoIDs() throws {
         let store = LibraryStore(fileURL: try libraryURL())
         let videoC = Video(id: "ccccccccccc", title: "Canción C", author: "Autor C")

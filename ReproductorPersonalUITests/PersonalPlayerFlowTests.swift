@@ -165,6 +165,74 @@ final class PersonalPlayerFlowTests: XCTestCase {
         alert.buttons["Iniciar"].tap()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertTrue(app.staticTexts["Radio Jazz"].exists)
+        closePlayer()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-reset-library" }
+        app.launch()
+        let savedGenre = app.buttons["genre-Jazz"]
+        for _ in 0..<4 where !savedGenre.isHittable { app.swipeUp() }
+        XCTAssertTrue(savedGenre.exists, "A custom genre must remain a reusable genre after relaunch")
+        savedGenre.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Radio Jazz"].exists)
+    }
+
+    func testBluesGenreStartsItsOwnRadio() {
+        app.launch()
+        let blues = app.buttons["genre-Blues"]
+        for _ in 0..<3 where !blues.isHittable { app.swipeUp() }
+        XCTAssertTrue(blues.exists)
+        XCTAssertFalse(app.buttons["genre-Merengue"].exists)
+        blues.tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Radio Blues"].exists)
+        capture("Radio Blues")
+    }
+
+    func testPausedMiniPlayerCanCloseInEitherDirectionAndStayClosedAfterRelaunch() {
+        app.launch()
+        search("cancion")
+        playFirstResult()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        saveCurrentFavorite()
+        app.buttons["Pausar"].firstMatch.tap()
+        closePlayer()
+        let mini = app.otherElements["miniPlayer"]
+        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        mini.swipeLeft()
+        expectNoMiniPlayer()
+        app.tabBars.buttons["Biblioteca"].tap()
+        app.buttons["Favoritos"].tap()
+        app.buttons["favorite-aaaaaaaaaaa"].tap()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        app.buttons["Pausar"].firstMatch.tap()
+        closePlayer()
+        XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        mini.swipeRight()
+        expectNoMiniPlayer()
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "--ui-reset-library" }
+        app.launch()
+        expectNoMiniPlayer()
+        app.tabBars.buttons["Biblioteca"].tap()
+        app.buttons["Favoritos"].tap()
+        XCTAssertTrue(app.buttons["favorite-aaaaaaaaaaa"].waitForExistence(timeout: 5))
+        capture("Biblioteca sin cola activa y favorito conservado")
+    }
+
+    func testSwipingPlayingMiniPlayerKeepsAudioAndControls() {
+        app.launch()
+        search("cancion")
+        playFirstResult()
+        XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
+        closePlayer()
+        let mini = app.otherElements["miniPlayer"]
+        mini.swipeLeft()
+        XCTAssertTrue(mini.exists)
+        XCTAssertTrue(app.buttons["Pausar"].firstMatch.exists)
+        mini.swipeRight()
+        XCTAssertTrue(mini.exists)
+        XCTAssertTrue(app.buttons["Pausar"].firstMatch.exists)
     }
 
     func testGenresStartRadioAndContinuationCanBeDisabled() {
@@ -284,6 +352,13 @@ final class PersonalPlayerFlowTests: XCTestCase {
         close.tap()
         let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             !close.exists && self.app.tabBars.buttons["Biblioteca"].isHittable
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
+
+    private func expectNoMiniPlayer() {
+        let closed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !self.app.otherElements["miniPlayer"].exists
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
     }
