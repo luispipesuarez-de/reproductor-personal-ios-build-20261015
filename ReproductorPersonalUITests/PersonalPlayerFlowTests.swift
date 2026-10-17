@@ -314,6 +314,8 @@ final class PersonalPlayerFlowTests: XCTestCase {
         salsa.tap()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
         closePlayer()
+        // Inspect ordering while paused so the 60-second fixture cannot naturally advance during UI navigation.
+        pauseMiniPlayer()
         search("cancion")
         app.buttons["actions-bbbbbbbbbbb"].tap()
         app.sheets["Más opciones"].buttons["Añadir a la cola"].firstMatch.tap()
