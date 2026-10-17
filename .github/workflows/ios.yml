@@ -10,6 +10,10 @@ on:
         description: Generar también el IPA Release
         type: boolean
         default: false
+      test_identifier:
+        description: Prueba concreta para diagnosticar un fallo (vacío ejecuta la suite completa; incompatible con IPA)
+        type: string
+        default: ''
 permissions:
   contents: read
 jobs:
@@ -33,6 +37,7 @@ jobs:
         env:
           UNIT_TESTS_ONLY: ${{ inputs.unit_only }}
           PACKAGE_IPA: ${{ inputs.package_ipa }}
+          TEST_IDENTIFIER: ${{ inputs.test_identifier }}
         run: |
           if [ "$UNIT_TESTS_ONLY" = true ]; then
             if [ "$PACKAGE_IPA" = true ]; then

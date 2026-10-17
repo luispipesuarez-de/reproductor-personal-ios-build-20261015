@@ -196,21 +196,23 @@ final class PersonalPlayerFlowTests: XCTestCase {
         playFirstResult()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
         saveCurrentFavorite()
-        app.buttons["Pausar"].firstMatch.tap()
         closePlayer()
+        pauseMiniPlayer()
         let mini = app.otherElements["miniPlayer"]
         XCTAssertTrue(mini.waitForExistence(timeout: 5))
         mini.swipeLeft()
         expectNoMiniPlayer()
+        XCTAssertFalse(app.buttons["closePlayer"].exists)
         app.tabBars.buttons["Biblioteca"].tap()
         app.buttons["Favoritos"].tap()
         app.buttons["favorite-aaaaaaaaaaa"].tap()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
-        app.buttons["Pausar"].firstMatch.tap()
         closePlayer()
+        pauseMiniPlayer()
         XCTAssertTrue(mini.waitForExistence(timeout: 5))
         mini.swipeRight()
         expectNoMiniPlayer()
+        XCTAssertFalse(app.buttons["closePlayer"].exists)
         app.terminate()
         app.launchArguments.removeAll { $0 == "--ui-reset-library" }
         app.launch()
@@ -228,12 +230,15 @@ final class PersonalPlayerFlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
         closePlayer()
         let mini = app.otherElements["miniPlayer"]
+        XCTAssertTrue(mini.buttons["Pausar"].isHittable)
         mini.swipeLeft()
         XCTAssertTrue(mini.exists)
-        XCTAssertTrue(app.buttons["Pausar"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["closePlayer"].exists, "A horizontal drag must not open the player sheet")
+        XCTAssertTrue(mini.buttons["Pausar"].isHittable)
         mini.swipeRight()
         XCTAssertTrue(mini.exists)
-        XCTAssertTrue(app.buttons["Pausar"].firstMatch.exists)
+        XCTAssertFalse(app.buttons["closePlayer"].exists)
+        XCTAssertTrue(mini.buttons["Pausar"].isHittable)
     }
 
     func testGenresStartRadioAndContinuationCanBeDisabled() {
@@ -362,6 +367,18 @@ final class PersonalPlayerFlowTests: XCTestCase {
             !self.app.otherElements["miniPlayer"].exists
         }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    }
+
+    private func pauseMiniPlayer() {
+        let mini = app.otherElements["miniPlayer"]
+        let pause = mini.buttons["Pausar"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in pause.exists && pause.isHittable }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed)
+        pause.tap()
+        let paused = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            mini.buttons["openPlayer"].value as? String == "Pausado"
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 5), .completed)
     }
 
     private func search(_ query: String) {

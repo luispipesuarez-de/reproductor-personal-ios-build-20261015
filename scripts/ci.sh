@@ -10,6 +10,13 @@ case "${1:-}" in
     xcrun simctl boot "$simulator" 2>/dev/null || true
     xcrun simctl bootstatus "$simulator" -b
     selection=(test)
+    if [ -n "${TEST_IDENTIFIER:-}" ]; then
+      if [ "$1" = test-unit ] || [ "${PACKAGE_IPA:-false}" = true ]; then
+        echo 'La selección de una prueba no puede combinarse con test-unit ni empaquetar un IPA.' >&2
+        exit 2
+      fi
+      selection+=("-only-testing:$TEST_IDENTIFIER")
+    fi
     if [ "$1" = test-unit ]; then selection+=(-only-testing:ReproductorPersonalTests); fi
     xcodebuild "${common[@]}" "${selection[@]}" -destination "platform=iOS Simulator,id=$simulator" -parallel-testing-enabled NO -resultBundlePath "build/Tests-$(date +%s).xcresult" 2>&1 | tee build/tests.log
     xcrun simctl launch --terminate-running-process "$simulator" personal.reproductor.ios
