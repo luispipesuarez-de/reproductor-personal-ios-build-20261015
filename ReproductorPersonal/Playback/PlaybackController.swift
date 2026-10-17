@@ -167,6 +167,20 @@ final class PlaybackController: ObservableObject {
         state = .paused(video)
     }
 
+    func dismissPausedPlayback() {
+        guard case .paused = state else { return }
+        navigationID = UUID()
+        clearNativeItems()
+        resetRadio(seed: nil)
+        queue = PlaybackQueue()
+        recoveredEntries.removeAll()
+        recoveringEntryID = nil
+        allowsAutomaticFailureSkip = false
+        isInterrupted = false
+        elapsed = 0
+        state = .idle
+    }
+
     func resume(allowAutomaticSkip: Bool = false) async {
         guard let entry = queue.current else { return }
         allowsAutomaticFailureSkip = allowAutomaticSkip

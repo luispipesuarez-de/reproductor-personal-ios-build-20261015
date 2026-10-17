@@ -3,6 +3,47 @@ import XCTest
 
 @MainActor
 final class LibraryStoreTests: XCTestCase {
+    func testAddedGenresAreNormalizedDeduplicatedAndReusableAfterReload() throws {
+        let url = try libraryURL()
+        let store = LibraryStore(fileURL: url)
+        XCTAssertEqual(try store.addGenre("  Bossa\t Nova\n"), "Bossa Nova")
+        XCTAssertEqual(try store.addGenre("BOSSA NOVA"), "Bossa Nova")
+        XCTAssertEqual(try store.addGenre(" blues "), "Blues")
+        XCTAssertEqual(try store.addGenre("SÁLSA"), "Salsa")
+        try store.setFavorite(videoA, enabled: true)
+        let reopened = LibraryStore(fileURL: url)
+        try reopened.load()
+        XCTAssertEqual(reopened.genres, ["Salsa", "Rock", "Pop", "Bachata", "Blues", "Vallenato", "Bossa Nova"])
+        XCTAssertEqual(reopened.snapshot.customGenres, ["Bossa Nova"])
+        XCTAssertEqual(reopened.snapshot.favorites, [videoA])
+    }
+
+    func testEmptyGenreDoesNotChangeTheLibrary() throws {
+        let url = try libraryURL()
+        let store = LibraryStore(fileURL: url)
+        try store.setFavorite(videoA, enabled: true)
+        let bytes = try Data(contentsOf: url)
+        XCTAssertThrowsError(try store.addGenre(" \n\t ")) { XCTAssertEqual($0 as? AppError, .invalidGenre) }
+        XCTAssertEqual(try Data(contentsOf: url), bytes)
+        XCTAssertTrue(store.snapshot.customGenres.isEmpty)
+    }
+
+    func testGenreWriteFailureKeepsPreviousGenresAndLibraryBytes() throws {
+        let url = try libraryURL()
+        let store = LibraryStore(fileURL: url)
+        try store.addGenre("Jazz")
+        let previous = store.snapshot
+        let bytes = try Data(contentsOf: url)
+        let directory = url.deletingLastPathComponent()
+        let preserved = directory.appendingPathExtension("preserved")
+        try FileManager.default.moveItem(at: directory, to: preserved)
+        addTeardownBlock { try? FileManager.default.removeItem(at: preserved) }
+        try Data("blocked parent".utf8).write(to: directory)
+        XCTAssertThrowsError(try store.addGenre("Soul")) { XCTAssertEqual($0 as? AppError, .storageFailed) }
+        XCTAssertEqual(store.snapshot, previous)
+        XCTAssertEqual(try Data(contentsOf: preserved.appendingPathComponent("library.json")), bytes)
+    }
+
     func testLibraryMutationsPreserveSavedGenresFromDisk() throws {
         let url = try libraryURL()
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

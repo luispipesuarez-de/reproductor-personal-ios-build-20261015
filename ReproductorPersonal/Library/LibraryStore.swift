@@ -7,6 +7,7 @@ final class LibraryStore: ObservableObject {
     private let fileURL: URL
     private var hasLoaded = false
     private var writesBlocked = false
+    private static let standardGenres = ["Salsa", "Rock", "Pop", "Bachata", "Blues", "Vallenato"]
 
     static var defaultFileURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -15,6 +16,22 @@ final class LibraryStore: ObservableObject {
     }
 
     init(fileURL: URL) { self.fileURL = fileURL }
+
+    var genres: [String] { Self.standardGenres + snapshot.customGenres }
+
+    @discardableResult
+    func addGenre(_ genre: String) throws -> String {
+        let normalized = genre.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        guard !normalized.isEmpty else { throw AppError.invalidGenre }
+        var selected = normalized
+        try mutate { snapshot in
+            if let existing = (Self.standardGenres + snapshot.customGenres).first(where: {
+                $0.compare(normalized, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+            }) { selected = existing }
+            else { snapshot.customGenres.append(normalized) }
+        }
+        return selected
+    }
 
     var allMusic: [Video] {
         var seen: Set<String> = []

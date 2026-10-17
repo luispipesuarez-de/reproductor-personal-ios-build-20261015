@@ -24,23 +24,31 @@ final class RadioSession {
     func batch(excluding: Set<String>, limit: Int) async throws -> [Video] {
         guard let seed, limit > 0 else { return [] }
         let token = generation
+        guard !Task.isCancelled else { throw CancellationError() }
         var seen = excluding
-        var result: [Video] = []
+        buffer = buffer.filter { seen.insert($0.id).inserted }
         var pages = 0
-        while result.count < limit {
+        while buffer.filter(\.isPreferredSong).count < limit,
+              !started || cursor != nil, pages < 3 {
             guard generation == token, !Task.isCancelled else { throw CancellationError() }
-            while !buffer.isEmpty, result.count < limit {
-                let candidate = buffer.removeFirst()
-                if seen.insert(candidate.id).inserted { result.append(candidate) }
+            let page: RecommendationPage
+            do { page = try await source.recommendations(seed: seed, continuation: cursor) }
+            catch {
+                guard generation == token, !Task.isCancelled else { throw CancellationError() }
+                // An optional lookahead must not discard candidates already available.
+                guard !buffer.isEmpty else { throw error }
+                break
             }
-            if result.count == limit || (started && cursor == nil) || pages == 3 { break }
-            let page = try await source.recommendations(seed: seed, continuation: cursor)
             guard generation == token, !Task.isCancelled else { throw CancellationError() }
             started = true
             cursor = page.continuation
-            buffer = page.videos
+            buffer.append(contentsOf: page.videos.filter { seen.insert($0.id).inserted })
             pages += 1
         }
+        guard generation == token, !Task.isCancelled else { throw CancellationError() }
+        buffer = buffer.prioritizingSongs()
+        let result = Array(buffer.prefix(limit))
+        buffer.removeFirst(result.count)
         return result
     }
 }

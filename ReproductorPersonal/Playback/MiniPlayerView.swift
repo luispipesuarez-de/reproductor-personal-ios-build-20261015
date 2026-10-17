@@ -35,12 +35,23 @@ struct MiniPlayerView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("openPlayer")
             .accessibilityValue(playback.state.caption)
-            .accessibilityHint("Abre el video y sus controles")
+            .accessibilityHint("Abre el video y sus controles. En pausa, desliza a un lado para cerrar y vaciar la cola.")
+            .accessibilityActions {
+                if case .paused = playback.state {
+                    Button("Cerrar reproducción", action: playback.dismissPausedPlayback)
+                }
+            }
             PlaybackToggleButton(playback: playback)
         }
         .padding(.horizontal)
         .padding(.vertical, 10)
         .background(.regularMaterial)
+        .contentShape(Rectangle())
+        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { value in
+            guard abs(value.translation.width) >= 70,
+                  abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+            withAnimation(.easeOut(duration: 0.2)) { playback.dismissPausedPlayback() }
+        })
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("miniPlayer")
     }

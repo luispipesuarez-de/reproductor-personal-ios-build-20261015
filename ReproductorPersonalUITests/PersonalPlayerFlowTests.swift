@@ -172,6 +172,7 @@ final class PersonalPlayerFlowTests: XCTestCase {
         let savedGenre = app.buttons["genre-Jazz"]
         for _ in 0..<4 where !savedGenre.isHittable { app.swipeUp() }
         XCTAssertTrue(savedGenre.exists, "A custom genre must remain a reusable genre after relaunch")
+        capture("Género Jazz conservado tras reabrir")
         savedGenre.tap()
         XCTAssertTrue(app.staticTexts["Reproduciendo"].firstMatch.waitForExistence(timeout: 30))
         XCTAssertTrue(app.staticTexts["Radio Jazz"].exists)

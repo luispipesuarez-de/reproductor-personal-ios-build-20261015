@@ -8,16 +8,16 @@ struct DiscoveryView: View {
     let onPlay: () -> Void
     @State private var showCustomGenre = false
     @State private var customGenre = ""
+    @State private var genreError: String?
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    private let genres = ["Salsa", "Rock", "Pop", "Bachata", "Merengue", "Vallenato"]
     private var libraryKey: [String] { library.snapshot.recent.map { "r:\($0.id)" } + library.snapshot.favorites.map { "f:\($0.id)" } }
 
     var body: some View {
         List {
             Section("Escoge un género") {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: typeSize.isAccessibilitySize ? 1 : 2), spacing: 12) {
-                    ForEach(genres, id: \.self) { genre in
+                    ForEach(library.genres, id: \.self) { genre in
                         Button { start(genre) } label: {
                             Text(genre).frame(maxWidth: .infinity, minHeight: 44)
                         }
@@ -27,6 +27,7 @@ struct DiscoveryView: View {
                     }
                 }.padding(.vertical, 6)
                 Button("Otro género") { showCustomGenre = true }.frame(minHeight: 44)
+                if let genreError { Text(genreError).foregroundStyle(.secondary).accessibilityIdentifier("genreStorageError") }
             }
             recommendations
         }
@@ -37,7 +38,7 @@ struct DiscoveryView: View {
         .alert("Otro género", isPresented: $showCustomGenre) {
             TextField("Género musical", text: $customGenre).autocorrectionDisabled()
             Button("Cancelar", role: .cancel) {}
-            Button("Iniciar") { start(customGenre); customGenre = "" }
+            Button("Iniciar", action: startCustomGenre)
                 .disabled(customGenre.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } message: { Text("Escribe el género que quieres escuchar.") }
     }
@@ -84,6 +85,15 @@ struct DiscoveryView: View {
     private func start(_ genre: String) {
         onPlay()
         Task { await playback.startRadio(genre: genre) }
+    }
+
+    private func startCustomGenre() {
+        do {
+            let saved = try library.addGenre(customGenre)
+            genreError = nil
+            customGenre = ""
+            start(saved)
+        } catch { genreError = error.localizedDescription }
     }
 
     private func refresh() async {

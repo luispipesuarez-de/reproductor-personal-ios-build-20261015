@@ -52,7 +52,7 @@ final class SearchViewModel: ObservableObject {
 
     private func perform(query: String, request currentRequest: UUID) async {
         do {
-            let videos = try await source.search(query: query)
+            let videos = try await source.search(query: query).prioritizingSongs()
             guard requestID == currentRequest else { return }
             guard !Task.isCancelled else { state = .idle; return }
             state = videos.isEmpty ? .empty(query: query) : .results(query: query, videos: videos)

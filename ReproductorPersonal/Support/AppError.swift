@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppError: Error, LocalizedError, Equatable {
-    case offline, unavailable, resolutionFailed, storageFailed, invalidPlaylistName, libraryIncompatible
+    case offline, unavailable, resolutionFailed, storageFailed, invalidPlaylistName, invalidGenre, libraryIncompatible
 
     var errorDescription: String? {
         switch self {
@@ -10,6 +10,7 @@ enum AppError: Error, LocalizedError, Equatable {
         case .resolutionFailed: return "No se pudo preparar este contenido. Intenta de nuevo."
         case .storageFailed: return "No se pudieron guardar los cambios. Intenta de nuevo."
         case .invalidPlaylistName: return "Escribe un nombre para la lista."
+        case .invalidGenre: return "Escribe un género musical."
         case .libraryIncompatible: return "No se pudo abrir tu biblioteca. Tus datos no se han modificado."
         }
     }
