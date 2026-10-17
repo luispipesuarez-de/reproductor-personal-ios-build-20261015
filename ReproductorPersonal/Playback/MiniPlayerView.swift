@@ -47,7 +47,7 @@ struct MiniPlayerView: View {
         .padding(.vertical, 10)
         .background(.regularMaterial)
         .contentShape(Rectangle())
-        .simultaneousGesture(DragGesture(minimumDistance: 30).onEnded { value in
+        .highPriorityGesture(DragGesture(minimumDistance: 30).onEnded { value in
             guard abs(value.translation.width) >= 70,
                   abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
             withAnimation(.easeOut(duration: 0.2)) { playback.dismissPausedPlayback() }
