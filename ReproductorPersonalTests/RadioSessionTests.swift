@@ -92,4 +92,4 @@ final class RadioSessionTests: XCTestCase {
     }
 }
 
-private let selfContainedVideoC = Video(id: "ccccccccccc", title: "Canción C", author: "Autor C", durationText: "3:30")
+private let selfContainedVideoC = Video(id: "ccccccccccc", title: "Canción C", author: "Autor C")

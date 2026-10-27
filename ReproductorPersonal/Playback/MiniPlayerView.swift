@@ -50,7 +50,7 @@ struct MiniPlayerView: View {
         .background(.regularMaterial)
         .contentShape(Rectangle())
         .offset(x: horizontalOffset)
-        .highPriorityGesture(pausedDragGesture, including: isPaused ? .all : .none)
+        .highPriorityGesture(dragGesture)
         .onChange(of: playback.state) { _ in
             guard !isPaused else { return }
             horizontalOffset = 0
@@ -64,17 +64,17 @@ struct MiniPlayerView: View {
         return false
     }
 
-    private var pausedDragGesture: some Gesture {
-        DragGesture(minimumDistance: 5)
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 10)
             .onChanged { value in
-                guard isPaused,
-                      abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
-                horizontalOffset = value.translation.width
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                if isPaused {
+                    horizontalOffset = value.translation.width
+                }
             }
             .onEnded { value in
-                guard isPaused,
-                      abs(value.translation.width) > abs(value.translation.height) * 1.5,
-                      abs(value.translation.width) >= 70 else {
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                guard isPaused, abs(value.translation.width) >= 70 else {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { horizontalOffset = 0 }
                     return
                 }
