@@ -21,6 +21,8 @@ extension PlaybackState {
 struct MiniPlayerView: View {
     @ObservedObject var playback: PlaybackController
     let open: () -> Void
+    @State private var horizontalOffset: CGFloat = 0
+
     var body: some View {
         HStack(spacing: 16) {
             Button(action: open) {
@@ -47,13 +49,43 @@ struct MiniPlayerView: View {
         .padding(.vertical, 10)
         .background(.regularMaterial)
         .contentShape(Rectangle())
-        .highPriorityGesture(DragGesture(minimumDistance: 30).onEnded { value in
-            guard abs(value.translation.width) >= 70,
-                  abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
-            withAnimation(.easeOut(duration: 0.2)) { playback.dismissPausedPlayback() }
-        })
+        .offset(x: horizontalOffset)
+        .highPriorityGesture(pausedDragGesture, including: isPaused ? .all : .none)
+        .onChange(of: playback.state) { _ in
+            guard !isPaused else { return }
+            horizontalOffset = 0
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("miniPlayer")
+    }
+
+    private var isPaused: Bool {
+        if case .paused = playback.state { return true }
+        return false
+    }
+
+    private var pausedDragGesture: some Gesture {
+        DragGesture(minimumDistance: 5)
+            .onChanged { value in
+                guard isPaused,
+                      abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                horizontalOffset = value.translation.width
+            }
+            .onEnded { value in
+                guard isPaused,
+                      abs(value.translation.width) > abs(value.translation.height) * 1.5,
+                      abs(value.translation.width) >= 70 else {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) { horizontalOffset = 0 }
+                    return
+                }
+                let direction: CGFloat = value.translation.width < 0 ? -1 : 1
+                withAnimation(.easeOut(duration: 0.18)) { horizontalOffset = direction * 500 }
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 180_000_000)
+                    guard !Task.isCancelled else { return }
+                    playback.dismissPausedPlayback()
+                }
+            }
     }
 }
 

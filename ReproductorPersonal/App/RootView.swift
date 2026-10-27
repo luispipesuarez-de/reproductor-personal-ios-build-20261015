@@ -1,5 +1,10 @@
 import SwiftUI
 
+enum RootTab: Hashable {
+    case search
+    case library
+}
+
 @MainActor
 struct RootView: View {
     @ObservedObject var search: SearchViewModel
@@ -9,17 +14,20 @@ struct RootView: View {
     @ObservedObject var persistence: PlaybackLibraryPersistence
     @Environment(\.scenePhase) private var scenePhase
     @State private var showPlayer = false
+    @State private var selectedTab: RootTab = .search
 
     var body: some View {
         VStack(spacing: 0) {
             if let storageError = persistence.errorMessage { StorageWarning(message: storageError, retry: persistence.retry) }
-            TabView {
-                SearchView(search: search, discovery: discovery, playback: playback, library: library, onPlay: openPlayer)
+            TabView(selection: $selectedTab) {
+                SearchView(search: search, discovery: discovery, playback: playback, library: library, selectedTab: $selectedTab, onPlay: openPlayer)
                     .safeAreaInset(edge: .bottom) { miniPlayer }
                     .tabItem { Label("Buscar", systemImage: "magnifyingglass") }
-                LibraryView(library: library, playback: playback, onPlay: openPlayer)
+                    .tag(RootTab.search)
+                LibraryView(library: library, playback: playback, selectedTab: $selectedTab, onPlay: openPlayer)
                     .safeAreaInset(edge: .bottom) { miniPlayer }
                     .tabItem { Label("Biblioteca", systemImage: "music.note.list").accessibilityIdentifier("libraryTab") }
+                    .tag(RootTab.library)
             }
         }
         .sheet(isPresented: $showPlayer) {

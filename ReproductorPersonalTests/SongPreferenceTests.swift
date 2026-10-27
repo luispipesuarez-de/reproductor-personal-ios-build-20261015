@@ -26,7 +26,7 @@ final class SongPreferenceTests: XCTestCase {
                                          "s0000000004", "s0000000006", "s0000000007", "s0000000008"])
     }
 
-    func testRadioLooksPastLongFirstPageAndRetainsFallbackAndCursor() async throws {
+    func testRadioReturnsOnlyPreferredSongsAndExhaustsAfterLastPage() async throws {
         let calls = QueryRecorder()
         let session = RadioSession(source: StubYouTubeProvider(onRecommendations: { _, cursor in
             await calls.append(cursor ?? "first")
@@ -42,37 +42,38 @@ final class SongPreferenceTests: XCTestCase {
         let firstCalls = await calls.queries
         XCTAssertEqual(firstCalls, ["first", "songs"])
         let second = try await session.batch(excluding: Set(first.map(\.id)), limit: 2)
-        XCTAssertEqual(second.map(\.id), ["s0000000005", "s0000000001"])
+        XCTAssertEqual(second.map(\.id), ["s0000000005"])
         let third = try await session.batch(excluding: Set((first + second).map(\.id)), limit: 2)
-        XCTAssertEqual(third.map(\.id), ["s0000000002"])
+        XCTAssertTrue(third.isEmpty)
         XCTAssertFalse(session.hasMore)
+        let allCalls = await calls.queries
+        XCTAssertEqual(allCalls, ["first", "songs", "last"])
     }
 
-    func testRadioFallsBackAfterThreePagesInsteadOfRequestingIndefinitely() async throws {
+    func testRadioExhaustsCleanlyAfterThreePagesWithoutPreferredSongs() async throws {
         let calls = QueryRecorder()
         let session = RadioSession(source: StubYouTubeProvider(onRecommendations: { _, cursor in
             let page = Int(cursor ?? "0") ?? 0
             await calls.append(String(page))
-            return RecommendationPage(videos: [song(page + 1, "1:30:00")], continuation: String(page + 1))
+            let videos = [song(page + 1, "1:30:00"), song(page + 4, nil)]
+            return RecommendationPage(videos: videos, continuation: page == 2 ? nil : String(page + 1))
         }))
         session.reset(seed: .genre("Rock"))
         let result = try await session.batch(excluding: [], limit: 1)
-        XCTAssertEqual(result.map(\.id), ["s0000000001"])
+        XCTAssertTrue(result.isEmpty)
         let requested = await calls.queries
         XCTAssertEqual(requested, ["0", "1", "2"])
-        XCTAssertTrue(session.hasMore)
+        XCTAssertFalse(session.hasMore)
     }
 
     func testExtraRadioPageFailureDoesNotLoseAlreadyAvailableCandidates() async throws {
         let session = RadioSession(source: StubYouTubeProvider(onRecommendations: { _, cursor in
             if cursor != nil { throw AppError.offline }
-            return RecommendationPage(videos: [song(1, "1:30:00"), song(2, "20:00")], continuation: "next")
+            return RecommendationPage(videos: [song(1, "3:30"), song(2, "1:30:00")], continuation: "next")
         }))
         session.reset(seed: .genre("Salsa"))
-        let result = try await session.batch(excluding: [], limit: 1)
-        XCTAssertEqual(result.map(\.id), ["s0000000002"])
-        let remaining = try await session.batch(excluding: ["s0000000002"], limit: 1)
-        XCTAssertEqual(remaining.map(\.id), ["s0000000001"])
+        let result = try await session.batch(excluding: [], limit: 2)
+        XCTAssertEqual(result.map(\.id), ["s0000000001"])
     }
 
     func testDiscoveryLooksPastTwelveLongVideosBeforeTruncatingRecommendations() async {

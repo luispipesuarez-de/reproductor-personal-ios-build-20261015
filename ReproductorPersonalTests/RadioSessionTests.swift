@@ -43,6 +43,21 @@ final class RadioSessionTests: XCTestCase {
         XCTAssertEqual(result, [videoB])
     }
 
+    func testDislikedCandidatesAreRemovedFromExistingBufferAndLaterPages() async throws {
+        let disliked = videoB
+        let session = RadioSession(source: StubYouTubeProvider(onRecommendations: { _, cursor in
+            if cursor == nil { return RecommendationPage(videos: [videoA, disliked], continuation: "next") }
+            return RecommendationPage(videos: [selfContainedVideoC, disliked], continuation: nil)
+        }))
+        session.reset(seed: .genre("Salsa"))
+
+        let first = try await session.batch(excluding: [], dislikedIDs: [], limit: 1)
+        let second = try await session.batch(excluding: [videoA.id], dislikedIDs: [disliked.id], limit: 1)
+
+        XCTAssertEqual(first, [videoA])
+        XCTAssertEqual(second, [selfContainedVideoC])
+    }
+
     func testResetDiscardsLateCandidatesAndOldCursor() async throws {
         let gate = RequestGate<RecommendationPage>()
         let started = expectation(description: "old genre")
@@ -77,4 +92,4 @@ final class RadioSessionTests: XCTestCase {
     }
 }
 
-private let selfContainedVideoC = Video(id: "ccccccccccc", title: "Canción C", author: "Autor C")
+private let selfContainedVideoC = Video(id: "ccccccccccc", title: "Canción C", author: "Autor C", durationText: "3:30")

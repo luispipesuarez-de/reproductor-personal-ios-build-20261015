@@ -14,6 +14,34 @@ final class YouTubeMappingTests: XCTestCase {
         XCTAssertEqual(mapped.first?.thumbnailURL?.host, "media.example.test")
     }
 
+    func testGenreQueriesUseCuratedMerengueAndBluesSearches() {
+        XCTAssertEqual(YouTubeClient.genreQuery(for: "Merengue"), "música merengue clásico éxitos oficiales")
+        XCTAssertEqual(YouTubeClient.genreQuery(for: " blues "), "classic blues music official audio hits")
+        XCTAssertEqual(YouTubeClient.genreQuery(for: "Salsa"), "música Salsa canciones")
+    }
+
+    func testMerengueMappingExcludesSoulInTitleOrChannel() {
+        let soulTitle = YTVideo(videoId: "ccccccccccc", title: "Merengue Soul Mix", channel: YTLittleChannelInfos(channelId: "UCc", name: "Canal Caribe"), timeLength: "3:30")
+        let soulChannel = YTVideo(videoId: "ddddddddddd", title: "Merengue clásico", channel: YTLittleChannelInfos(channelId: "UCd", name: "SÓUL Tropical"), timeLength: "4:00")
+        let merengue = YTVideo(videoId: "eeeeeeeeeee", title: "Merengue clásico", channel: YTLittleChannelInfos(channelId: "UCe", name: "Orquesta Caribe"), timeLength: "3:45")
+
+        let mapped = YouTubeMapping.videos(from: [soulTitle, soulChannel, merengue], candidatesOnly: true, excludingSoul: true)
+
+        XCTAssertEqual(mapped.map(\.id), ["eeeeeeeeeee"])
+    }
+
+    func testMappingMarksOfficialChannelSignals() {
+        let topic = YTVideo(videoId: "ccccccccccc", title: "A", channel: YTLittleChannelInfos(channelId: "UCc", name: "Artista - Topic"), timeLength: "3:30")
+        let vevo = YTVideo(videoId: "ddddddddddd", title: "B", channel: YTLittleChannelInfos(channelId: "UCd", name: "ArtistaVEVO"), timeLength: "3:30")
+        let musicArtist = YTVideo(videoId: "eeeeeeeeeee", title: "C", channel: YTLittleChannelInfos(channelId: "UCe", name: "♫ Artista"), timeLength: "3:30")
+        let verified = YTVideo(videoId: "ffffffffff0", title: "D", channel: YTLittleChannelInfos(channelId: "UCf", name: "Artista ✓"), timeLength: "3:30")
+        let regular = YTVideo(videoId: "ggggggggggg", title: "E", channel: YTLittleChannelInfos(channelId: "UCg", name: "Canal de fans"), timeLength: "3:30")
+
+        let mapped = YouTubeMapping.videos(from: [topic, vevo, musicArtist, verified, regular])
+
+        XCTAssertEqual(mapped.map(\.isOfficialChannel), [true, true, true, true, false])
+    }
+
     func testHLSIsPreferredOverCombinedStream() throws {
         let hlsURL = URL(string: "https://media.example.test/video.m3u8")!
         let expires = Date(timeIntervalSince1970: 1800000000)

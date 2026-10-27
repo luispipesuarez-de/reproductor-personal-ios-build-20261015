@@ -69,6 +69,26 @@ final class LibraryStore: ObservableObject {
         }
     }
 
+    func setLiked(_ video: Video, enabled: Bool) throws {
+        try mutate {
+            if enabled {
+                $0.disliked.removeAll { $0.id == video.id }
+                if let index = $0.liked.firstIndex(where: { $0.id == video.id }) { $0.liked[index] = video }
+                else { $0.liked.append(video) }
+            } else { $0.liked.removeAll { $0.id == video.id } }
+        }
+    }
+
+    func setDisliked(_ video: Video, enabled: Bool) throws {
+        try mutate {
+            if enabled {
+                $0.liked.removeAll { $0.id == video.id }
+                if let index = $0.disliked.firstIndex(where: { $0.id == video.id }) { $0.disliked[index] = video }
+                else { $0.disliked.append(video) }
+            } else { $0.disliked.removeAll { $0.id == video.id } }
+        }
+    }
+
     func createPlaylist(name: String) throws -> UUID {
         let trimmed = try validName(name)
         let playlist = LocalPlaylist(name: trimmed)

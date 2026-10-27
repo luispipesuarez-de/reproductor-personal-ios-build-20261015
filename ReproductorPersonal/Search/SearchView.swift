@@ -6,6 +6,7 @@ struct SearchView: View {
     @ObservedObject var discovery: DiscoveryViewModel
     @ObservedObject var playback: PlaybackController
     @ObservedObject var library: LibraryStore
+    @Binding var selectedTab: RootTab
     let onPlay: () -> Void
     @State private var query = ""
     @State private var showLicense = false
@@ -16,13 +17,25 @@ struct SearchView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchControls.padding(.horizontal).padding(.bottom, 12)
+                if search.showsDurationFilter { durationFilter.padding(.horizontal).padding(.bottom, 8) }
                 content
             }
             .navigationTitle("Buscar")
             .toolbar {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    Button("Buscar") { selectedTab = .search }
+                        .disabled(selectedTab == .search)
+                        .accessibilityIdentifier("openSearchTab")
+                    Button("Biblioteca") { selectedTab = .library }
+                        .accessibilityIdentifier("openLibraryTab")
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showLicense = true } label: { Image(systemName: "info.circle").frame(minWidth: 44, minHeight: 44) }
                         .accessibilityLabel("Licencia de YouTubeKit")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Listo") { fieldFocused = false }
                 }
             }
             .sheet(isPresented: $showLicense) { licenseSheet }
@@ -52,6 +65,14 @@ struct SearchView: View {
         Button("Buscar", action: submit).frame(minHeight: 44)
             .disabled(query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .accessibilityIdentifier("searchSubmit")
+    }
+
+    private var durationFilter: some View {
+        Picker("Duración", selection: Binding(get: { search.durationFilter }, set: search.setDurationFilter)) {
+            ForEach(SearchDurationFilter.allCases) { filter in Text(filter.title).tag(filter) }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("durationFilter")
     }
 
     @ViewBuilder private var content: some View {

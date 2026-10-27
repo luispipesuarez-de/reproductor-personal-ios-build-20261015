@@ -17,11 +17,15 @@ final class DiscoveryViewModel: ObservableObject {
     init(source: any YouTubeProviding) { self.source = source }
 
     func refresh(favorites: [Video], recent: [Video]) async {
+        await refresh(favorites: favorites, likes: [], dislikedIDs: [], recent: recent)
+    }
+
+    func refresh(favorites: [Video], likes: [Video], dislikedIDs: Set<String>, recent: [Video]) async {
         requestID = UUID()
         let token = requestID
         var seedIDs: Set<String> = []
-        let references = Array(recent.prefix(1)) + favorites + Array(recent.dropFirst())
-        let seeds = references.filter { seedIDs.insert($0.id).inserted }.prefix(2)
+        let references = likes + favorites + recent
+        let seeds = references.filter { !dislikedIDs.contains($0.id) && seedIDs.insert($0.id).inserted }.prefix(2)
         guard !seeds.isEmpty else { state = .idle; return }
         state = .loading
         let heard = Set(recent.map(\.id))
@@ -40,7 +44,7 @@ final class DiscoveryViewModel: ObservableObject {
                         break
                     }
                     guard requestID == token, !Task.isCancelled else { return }
-                    candidates.append(contentsOf: page.videos.filter { seen.insert($0.id).inserted })
+                    candidates.append(contentsOf: page.videos.filter { !dislikedIDs.contains($0.id) && seen.insert($0.id).inserted })
                     cursor = page.continuation
                     if cursor == nil || candidates.filter({ $0.isPreferredSong && !heard.contains($0.id) }).count >= 12 { break }
                 }

@@ -15,6 +15,31 @@ final class DiscoveryViewModelTests: XCTestCase {
         XCTAssertEqual(requested, [videoA.id, favorite.id])
     }
 
+    func testLikesAreTheFirstDiscoverySeeds() async {
+        let calls = QueryRecorder()
+        let liked = Video(id: "ddddddddddd", title: "Me gusta", author: "D")
+        let model = DiscoveryViewModel(source: StubYouTubeProvider(onRecommendations: { seed, _ in
+            if case .video(let id) = seed { await calls.append(id) }
+            return RecommendationPage(videos: [videoB], continuation: nil)
+        }))
+
+        await model.refresh(favorites: [videoA], likes: [liked], dislikedIDs: [], recent: [videoB])
+
+        let requested = await calls.queries
+        XCTAssertEqual(requested, [liked.id, videoA.id])
+    }
+
+    func testDislikedVideosAreExcludedFromBothDiscoverySections() async {
+        let disliked = Video(id: "ddddddddddd", title: "No me gusta", author: "D")
+        let model = DiscoveryViewModel(source: StubYouTubeProvider(onRecommendations: { _, _ in
+            RecommendationPage(videos: [disliked, videoB], continuation: nil)
+        }))
+
+        await model.refresh(favorites: [videoA], likes: [], dislikedIDs: [disliked.id], recent: [])
+
+        XCTAssertEqual(model.state, .ready(recommended: [videoB], discover: [videoB]))
+    }
+
     func testRecommendationsOfferAuthorVarietyBeforeRepeatingAnAuthor() async {
         let same = Video(id: "ccccccccccc", title: "Otra de A", author: videoA.author)
         let different = Video(id: "ddddddddddd", title: "D", author: "Autor D")
@@ -25,6 +50,20 @@ final class DiscoveryViewModelTests: XCTestCase {
         guard case .ready(let recommended, _) = model.state else { return XCTFail("Expected recommendations") }
         XCTAssertEqual(recommended.prefix(3).map(\.author), [videoA.author, videoB.author, different.author])
         XCTAssertEqual(Set(recommended.map(\.id)), Set([videoA.id, same.id, videoB.id, different.id]))
+    }
+
+    func testRecommendationsPrioritizeOfficialChannelsWithinPreferredSongs() async {
+        let regular = Video(id: "ccccccccccc", title: "C", author: "Canal de fans", durationText: "3:30")
+        let official = Video(id: "ddddddddddd", title: "D", author: "Artista - Topic", durationText: "3:30", officialChannel: true)
+        let model = DiscoveryViewModel(source: StubYouTubeProvider(onRecommendations: { _, _ in
+            RecommendationPage(videos: [regular, official], continuation: nil)
+        }))
+
+        await model.refresh(favorites: [videoA], recent: [])
+
+        guard case .ready(let recommended, let discover) = model.state else { return XCTFail("Expected recommendations") }
+        XCTAssertEqual(recommended.map(\.id), [official.id, regular.id])
+        XCTAssertEqual(discover.map(\.id), [official.id, regular.id])
     }
 
     func testEmptyInitialPageCanContinueToUnheardSongs() async {

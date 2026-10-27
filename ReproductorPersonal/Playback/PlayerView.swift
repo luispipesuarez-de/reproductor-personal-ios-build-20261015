@@ -32,6 +32,7 @@ struct NowPlayingView: View {
     @State private var showQueue = false
     @State private var seeking = false
     @State private var seekValue: Double = 0
+    @State private var preferenceError: String?
 
     var body: some View {
         NavigationStack {
@@ -77,6 +78,9 @@ struct NowPlayingView: View {
                     .modifier(UITestAppearance())
 #endif
             }
+            .alert("Biblioteca", isPresented: Binding(get: { preferenceError != nil }, set: { if !$0 { preferenceError = nil } })) {
+                Button("Aceptar", role: .cancel) { preferenceError = nil }
+            } message: { Text(preferenceError ?? "") }
         }
     }
 
@@ -105,7 +109,34 @@ struct NowPlayingView: View {
             .buttonStyle(.bordered)
             .disabled(playback.queue.upcomingCount < 2)
             .accessibilityIdentifier("shuffleQueue")
+            if let video = playback.state.video {
+                HStack(spacing: 16) {
+                    Button { setLiked(video) } label: {
+                        Label(isLiked(video) ? "Quitar Me gusta" : "Me gusta", systemImage: isLiked(video) ? "hand.thumbsup.fill" : "hand.thumbsup")
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    Button { setDisliked(video) } label: {
+                        Label(isDisliked(video) ? "Quitar No me gusta" : "No me gusta", systemImage: isDisliked(video) ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
         }
+    }
+
+    private func isLiked(_ video: Video) -> Bool { library.snapshot.liked.contains { $0.id == video.id } }
+    private func isDisliked(_ video: Video) -> Bool { library.snapshot.disliked.contains { $0.id == video.id } }
+
+    private func setLiked(_ video: Video) {
+        do { try library.setLiked(video, enabled: !isLiked(video)) }
+        catch { preferenceError = error.localizedDescription }
+    }
+
+    private func setDisliked(_ video: Video) {
+        do { try library.setDisliked(video, enabled: !isDisliked(video)) }
+        catch { preferenceError = error.localizedDescription }
     }
 
     @ViewBuilder private var progressControl: some View {

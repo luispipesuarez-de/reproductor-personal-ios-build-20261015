@@ -4,6 +4,11 @@ import XCTest
 
 @MainActor
 final class PlaybackControllerTests: XCTestCase {
+    func testPlayerStartsWithoutWaitingToMinimizeStalling() {
+        let controller = PlaybackController(source: StubYouTubeProvider())
+        XCTAssertFalse(controller.player.automaticallyWaitsToMinimizeStalling)
+    }
+
     func testResolutionFailureDoesNotAnnouncePlaying() async {
         let controller = PlaybackController(source: StubYouTubeProvider())
         await controller.play(videoA)

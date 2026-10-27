@@ -11,7 +11,12 @@ struct DiscoveryView: View {
     @State private var genreError: String?
     @Environment(\.dynamicTypeSize) private var typeSize
 
-    private var libraryKey: [String] { library.snapshot.recent.map { "r:\($0.id)" } + library.snapshot.favorites.map { "f:\($0.id)" } }
+    private var libraryKey: [String] {
+        library.snapshot.recent.map { "r:\($0.id)" }
+            + library.snapshot.favorites.map { "f:\($0.id)" }
+            + library.snapshot.liked.map { "l:\($0.id)" }
+            + library.snapshot.disliked.map { "d:\($0.id)" }
+    }
 
     var body: some View {
         List {
@@ -97,6 +102,9 @@ struct DiscoveryView: View {
     }
 
     private func refresh() async {
-        await discovery.refresh(favorites: library.snapshot.favorites, recent: library.snapshot.recent)
+        await discovery.refresh(favorites: library.snapshot.favorites,
+                                likes: library.snapshot.liked,
+                                dislikedIDs: Set(library.snapshot.disliked.map(\.id)),
+                                recent: library.snapshot.recent)
     }
 }

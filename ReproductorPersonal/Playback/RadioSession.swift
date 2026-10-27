@@ -22,11 +22,15 @@ final class RadioSession {
     }
 
     func batch(excluding: Set<String>, limit: Int) async throws -> [Video] {
+        try await batch(excluding: excluding, dislikedIDs: [], limit: limit)
+    }
+
+    func batch(excluding: Set<String>, dislikedIDs: Set<String>, limit: Int) async throws -> [Video] {
         guard let seed, limit > 0 else { return [] }
         let token = generation
         guard !Task.isCancelled else { throw CancellationError() }
-        var seen = excluding
-        buffer = buffer.filter { seen.insert($0.id).inserted }
+        var seen = excluding.union(dislikedIDs)
+        buffer = buffer.filter { !dislikedIDs.contains($0.id) && $0.isPreferredSong && seen.insert($0.id).inserted }
         var pages = 0
         while buffer.filter(\.isPreferredSong).count < limit,
               !started || cursor != nil, pages < 3 {
@@ -42,7 +46,7 @@ final class RadioSession {
             guard generation == token, !Task.isCancelled else { throw CancellationError() }
             started = true
             cursor = page.continuation
-            buffer.append(contentsOf: page.videos.filter { seen.insert($0.id).inserted })
+            buffer.append(contentsOf: page.videos.filter { !dislikedIDs.contains($0.id) && $0.isPreferredSong && seen.insert($0.id).inserted })
             pages += 1
         }
         guard generation == token, !Task.isCancelled else { throw CancellationError() }

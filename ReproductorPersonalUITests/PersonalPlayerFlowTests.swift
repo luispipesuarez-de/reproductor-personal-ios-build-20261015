@@ -9,6 +9,34 @@ final class PersonalPlayerFlowTests: XCTestCase {
         app.launchArguments = ["--ui-testing", "--ui-reset-library", "-AppleLanguages", "(es)", "-AppleLocale", "es_CO"]
     }
 
+    func testLeadingNavigationButtonsShareTheTabSelection() {
+        app.launch()
+        let openLibrary = app.buttons["openLibraryTab"]
+        XCTAssertTrue(openLibrary.waitForExistence(timeout: 5))
+        openLibrary.tap()
+        XCTAssertTrue(app.navigationBars["Biblioteca"].waitForExistence(timeout: 5))
+
+        let openSearch = app.buttons["openSearchTab"]
+        XCTAssertTrue(openSearch.waitForExistence(timeout: 5))
+        openSearch.tap()
+        XCTAssertTrue(app.navigationBars["Buscar"].waitForExistence(timeout: 5))
+    }
+
+    func testKeyboardDoneDismissesTheSearchField() {
+        app.launch()
+        let field = app.textFields["searchField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("cancion")
+        let done = app.buttons["Listo"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        let keyboardHidden = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            !self.app.keyboards.firstMatch.exists
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [keyboardHidden], timeout: 5), .completed)
+    }
+
     func testTypingShowsPlayableResultsWithoutSubmitting() {
         app.launch()
         let field = app.textFields["searchField"]
@@ -200,6 +228,9 @@ final class PersonalPlayerFlowTests: XCTestCase {
         pauseMiniPlayer()
         let mini = app.otherElements["miniPlayer"]
         XCTAssertTrue(mini.waitForExistence(timeout: 5))
+        let start = mini.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: -40, dy: 0)))
+        XCTAssertTrue(mini.exists, "A paused mini player must spring back below the dismissal threshold")
         mini.swipeLeft()
         expectNoMiniPlayer()
         XCTAssertFalse(app.buttons["closePlayer"].exists)

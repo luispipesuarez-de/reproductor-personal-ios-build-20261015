@@ -11,6 +11,8 @@ struct VideoActionsMenu: View {
     @State private var errorMessage: String?
 
     private var isFavorite: Bool { library.snapshot.favorites.contains { $0.id == video.id } }
+    private var isLiked: Bool { library.snapshot.liked.contains { $0.id == video.id } }
+    private var isDisliked: Bool { library.snapshot.disliked.contains { $0.id == video.id } }
 
     var body: some View {
         Button { showActions = true } label: {
@@ -25,6 +27,14 @@ struct VideoActionsMenu: View {
                 catch { errorMessage = error.localizedDescription }
             } label: { Label(isFavorite ? "Quitar de Favoritos" : "Guardar en Favoritos", systemImage: isFavorite ? "heart.slash" : "heart") }
             Button { showPlaylists = true } label: { Label("Añadir a una lista", systemImage: "text.badge.plus") }
+            Button {
+                do { try library.setLiked(video, enabled: !isLiked) }
+                catch { errorMessage = error.localizedDescription }
+            } label: { Label(isLiked ? "Quitar Me gusta" : "Me gusta", systemImage: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup") }
+            Button {
+                do { try library.setDisliked(video, enabled: !isDisliked) }
+                catch { errorMessage = error.localizedDescription }
+            } label: { Label(isDisliked ? "Quitar No me gusta" : "No me gusta", systemImage: isDisliked ? "hand.thumbsdown.fill" : "hand.thumbsdown") }
             Button { playback.enqueue(video) } label: { Label("Añadir a la cola", systemImage: "list.bullet") }
             Button { Task { await playback.startRadio(from: video) } } label: { Label("Iniciar radio", systemImage: "radio") }
             Button("Cancelar", role: .cancel) {}

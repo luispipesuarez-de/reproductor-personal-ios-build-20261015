@@ -25,11 +25,13 @@ struct ReproductorPersonalApp: App {
 #endif
         _search = StateObject(wrappedValue: SearchViewModel(source: source))
         _discovery = StateObject(wrappedValue: DiscoveryViewModel(source: source))
-        let playback = PlaybackController(source: source)
         let library = LibraryStore(fileURL: fileURL)
+        let playback = PlaybackController(source: source, dislikedIDs: { Set(library.snapshot.disliked.map(\.id)) })
         _playback = StateObject(wrappedValue: playback)
         _library = StateObject(wrappedValue: library)
         _persistence = StateObject(wrappedValue: PlaybackLibraryPersistence(library: library, playback: playback))
+        SiriPlaybackBridge.shared.configure(library: library, playback: playback)
+        if #available(iOS 16.0, *) { ReproductorAppShortcuts.updateAppShortcutParameters() }
     }
 
     var body: some Scene {

@@ -4,6 +4,7 @@ import SwiftUI
 struct LibraryView: View {
     @ObservedObject var library: LibraryStore
     @ObservedObject var playback: PlaybackController
+    @Binding var selectedTab: RootTab
     let onPlay: () -> Void
     @State private var creating = false
     @State private var name = ""
@@ -50,6 +51,13 @@ struct LibraryView: View {
             }
             .navigationTitle("Biblioteca")
             .toolbar {
+                ToolbarItemGroup(placement: .navigationBarLeading) {
+                    Button("Buscar") { selectedTab = .search }
+                        .accessibilityIdentifier("openSearchTab")
+                    Button("Biblioteca") { selectedTab = .library }
+                        .disabled(selectedTab == .library)
+                        .accessibilityIdentifier("openLibraryTab")
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button { creating = true } label: { Image(systemName: "plus").frame(minWidth: 44, minHeight: 44) }
                         .accessibilityLabel("Crear lista")

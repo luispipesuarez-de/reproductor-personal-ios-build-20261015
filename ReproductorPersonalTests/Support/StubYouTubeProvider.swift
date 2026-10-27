@@ -34,5 +34,5 @@ actor RequestGate<Value: Sendable> {
     }
 }
 
-let videoA = Video(id: "aaaaaaaaaaa", title: "Canción A", author: "Autor A")
-let videoB = Video(id: "bbbbbbbbbbb", title: "Video B", author: "Autor B")
+let videoA = Video(id: "aaaaaaaaaaa", title: "Canción A", author: "Autor A", durationText: "3:30")
+let videoB = Video(id: "bbbbbbbbbbb", title: "Video B", author: "Autor B", durationText: "3:30")

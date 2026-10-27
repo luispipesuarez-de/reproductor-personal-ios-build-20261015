@@ -41,6 +41,8 @@ final class PlaybackController: ObservableObject {
     @Published private(set) var radioSeed: RecommendationSeed? { didSet { onPlaybackChange?() } }
     @Published private(set) var radioStatus: RadioStatus = .idle
     private let source: any YouTubeProviding
+    private let dislikedIDs: () -> Set<String>
+    private let resourceCache: PlaybackResourceCache
     private let radio: RadioSession
     private var refillTask: Task<Void, Never>?
     private var radioGeneration = UUID()
@@ -76,11 +78,14 @@ final class PlaybackController: ObservableObject {
         }
     }
 
-    init(source: any YouTubeProviding, player: AVQueuePlayer = AVQueuePlayer()) {
+    init(source: any YouTubeProviding, player: AVQueuePlayer = AVQueuePlayer(), dislikedIDs: @escaping () -> Set<String> = { [] }) {
         self.source = source
+        self.dislikedIDs = dislikedIDs
+        self.resourceCache = PlaybackResourceCache()
         self.radio = RadioSession(source: source)
         self.player = player
         player.actionAtItemEnd = .pause
+        player.automaticallyWaitsToMinimizeStalling = false
         player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
         timeObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.updateNativeState() }
@@ -381,11 +386,12 @@ final class PlaybackController: ObservableObject {
         let transport = requestID
         let navigation = navigationID
         let originalEntryIDs = Set(queue.entries.map(\.id))
-        let excluded = Set(queue.entries.map(\.video.id))
+        let disliked = dislikedIDs()
+        let excluded = Set(queue.entries.map(\.video.id)).union(disliked)
         radioStatus = .loading
         refillTask = Task { [weak self, radio] in
             let result: Result<[Video], Error>
-            do { result = .success(try await radio.batch(excluding: excluded, limit: 10)) }
+            do { result = .success(try await radio.batch(excluding: excluded, dislikedIDs: disliked, limit: 10)) }
             catch { result = .failure(error) }
             guard let self, !Task.isCancelled, self.radioGeneration == generation else { return }
             // A startup failure can call next(); it must never await this same task.
@@ -473,7 +479,7 @@ final class PlaybackController: ObservableObject {
             } else {
                 player.removeAllItems()
                 if case .failed(_, let error)? = cached { throw error }
-                resource = try await source.resolve(videoID: entry.video.id)
+                resource = try await resourceCache.resolve(videoID: entry.video.id, source: source)
                 guard requestID == currentRequest, queue.current?.id == entry.id else { return }
                 guard !Task.isCancelled else { pause(); return }
                 item = AVPlayerItem(url: resource.url)
@@ -504,11 +510,12 @@ final class PlaybackController: ObservableObject {
         if prepared?.id == entry.id { return }
         discardPrepared()
         let token = prefetchID
-        prefetchTask = Task { [weak self, source] in
+        prefetchTask = Task { [weak self] in
             let result: Result<PlaybackResource, Error>
-            do { result = .success(try await source.resolve(videoID: entry.video.id)) }
+            guard let self else { return }
+            do { result = .success(try await self.resourceCache.resolve(videoID: entry.video.id, source: self.source)) }
             catch { result = .failure(error) }
-            guard let self, !Task.isCancelled, self.prefetchID == token,
+            guard !Task.isCancelled, self.prefetchID == token,
                   self.queue.current?.id == currentID, self.nextEntry?.id == entry.id,
                   self.player.currentItem === currentItem else { return }
             switch result {

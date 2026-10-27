@@ -6,8 +6,29 @@ struct Video: Identifiable, Codable, Equatable, Sendable {
     let author: String
     var thumbnailURL: URL?
     var durationText: String?
+    private var officialChannel: Bool?
+
+    init(id: String, title: String, author: String, thumbnailURL: URL? = nil, durationText: String? = nil, officialChannel: Bool? = nil) {
+        self.id = id
+        self.title = title
+        self.author = author
+        self.thumbnailURL = thumbnailURL
+        self.durationText = durationText
+        self.officialChannel = officialChannel
+    }
 
     var isPreferredSong: Bool { songPriority == 0 }
+    var isOfficialChannel: Bool { officialChannel == true }
+    var containsSoulReference: Bool { Self.normalizedCatalogText(title + " " + author).contains("soul") }
+
+    static func isOfficialChannelName(_ author: String) -> Bool {
+        let normalized = normalizedCatalogText(author)
+        let hasVerificationMark = author.contains(where: { "✓✔☑".contains($0) })
+        let hasMusicNote = author.contains(where: { "♪♫♬𝅘𝅥𝅮".contains($0) })
+        return hasVerificationMark || hasMusicNote
+            || normalized == "topic" || normalized.hasSuffix(" - topic")
+            || normalized.contains("vevo")
+    }
 
     fileprivate var songPriority: Int {
         guard let seconds = durationSeconds else { return 1 }
@@ -15,7 +36,7 @@ struct Video: Identifiable, Codable, Equatable, Sendable {
         return seconds >= 3600 ? 2 : 1
     }
 
-    private var durationSeconds: Int? {
+    var durationSeconds: Int? {
         guard let parts = durationText?.split(separator: ":", omittingEmptySubsequences: false),
               (2...3).contains(parts.count) else { return nil }
         var seconds = 0
@@ -29,14 +50,22 @@ struct Video: Identifiable, Codable, Equatable, Sendable {
         }
         return seconds
     }
+
+    private static func normalizedCatalogText(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+    }
 }
 
 extension Array where Element == Video {
     func prioritizingSongs() -> [Video] {
-        // Preserve the provider's relevance within songs, other videos, and hour-long videos.
+        // Preserve provider relevance within each catalog-quality and official-channel group.
         var groups: [[Video]] = [[], [], []]
         for video in self { groups[video.songPriority].append(video) }
-        return groups.flatMap { $0 }
+        return groups.flatMap { $0.prioritizingOfficialChannels() }
+    }
+
+    func prioritizingOfficialChannels() -> [Video] {
+        filter(\.isOfficialChannel) + filter { !$0.isOfficialChannel }
     }
 }
 

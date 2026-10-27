@@ -126,6 +126,37 @@ final class LibraryStoreTests: XCTestCase {
         XCTAssertTrue(store.snapshot.favorites.isEmpty)
     }
 
+    func testRatingsAreMutuallyExclusiveAndPersistAcrossReload() throws {
+        let url = try libraryURL()
+        let store = LibraryStore(fileURL: url)
+
+        try store.setLiked(videoA, enabled: true)
+        XCTAssertEqual(store.snapshot.liked, [videoA])
+        XCTAssertTrue(store.snapshot.disliked.isEmpty)
+
+        try store.setDisliked(videoA, enabled: true)
+        XCTAssertTrue(store.snapshot.liked.isEmpty)
+        XCTAssertEqual(store.snapshot.disliked, [videoA])
+
+        try store.setLiked(videoA, enabled: true)
+        let reopened = LibraryStore(fileURL: url)
+        try reopened.load()
+        XCTAssertEqual(reopened.snapshot.liked, [videoA])
+        XCTAssertTrue(reopened.snapshot.disliked.isEmpty)
+    }
+
+    func testLegacyLibraryWithoutRatingsLoadsWithEmptyPreferences() throws {
+        let url = try libraryURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"schemaVersion":1,"favorites":[],"playlists":[],"recent":[]}"#.utf8).write(to: url)
+
+        let store = LibraryStore(fileURL: url)
+        try store.load()
+
+        XCTAssertTrue(store.snapshot.liked.isEmpty)
+        XCTAssertTrue(store.snapshot.disliked.isEmpty)
+    }
+
     func testRecentMovesAnExistingVideoToTheFront() throws {
         let store = LibraryStore(fileURL: try libraryURL())
         try store.recordRecent(videoA)

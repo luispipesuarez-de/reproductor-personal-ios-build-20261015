@@ -20,19 +20,20 @@ actor YouTubeClient: YouTubeProviding {
                 )
                 return RecommendationPage(videos: YouTubeMapping.videos(from: page.recommendedVideos, candidatesOnly: true), continuation: page.recommendedVideosContinuationToken)
             case .genre(let genre):
+                let excludesSoul = isMerengue(genre)
                 if let continuation {
                     let page = try await SearchResponse.Continuation.sendThrowingRequest(
                         youtubeModel: model, data: [.continuation: continuation], useCookies: false
                     )
-                    return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true), continuation: page.continuationToken)
+                    return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true, excludingSoul: excludesSoul), continuation: page.continuationToken)
                 }
                 let trimmed = genre.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return RecommendationPage(videos: [], continuation: nil) }
                 let page = try await SearchResponse.sendThrowingRequest(
-                    youtubeModel: model, data: [.query: "música \(trimmed) canciones"], useCookies: false
+                    youtubeModel: model, data: [.query: Self.genreQuery(for: trimmed)], useCookies: false
                 )
                 if let visitor = page.visitorData, !visitor.isEmpty { model.visitorData = visitor }
-                return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true), continuation: page.continuationToken)
+                return RecommendationPage(videos: YouTubeMapping.videos(from: page.results, candidatesOnly: true, excludingSoul: excludesSoul), continuation: page.continuationToken)
             }
         } catch { throw AppError.classify(error) }
     }
@@ -182,5 +183,22 @@ actor YouTubeClient: YouTubeProviding {
     private func needsProcessing(_ url: URL) -> Bool {
         url.path.contains("/n/") || URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.contains(where: { $0.name == "n" }) == true
+    }
+
+    static func genreQuery(for genre: String) -> String {
+        let trimmed = genre.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch normalizedGenre(trimmed) {
+        case "merengue": return "música merengue clásico éxitos oficiales"
+        case "blues": return "classic blues music official audio hits"
+        default: return "música \(trimmed) canciones"
+        }
+    }
+
+    private func isMerengue(_ genre: String) -> Bool {
+        Self.normalizedGenre(genre) == "merengue"
+    }
+
+    private static func normalizedGenre(_ genre: String) -> String {
+        genre.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     }
 }
