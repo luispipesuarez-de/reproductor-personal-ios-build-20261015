@@ -85,7 +85,7 @@ final class PlaybackController: ObservableObject {
         self.radio = RadioSession(source: source)
         self.player = player
         player.actionAtItemEnd = .pause
-        player.automaticallyWaitsToMinimizeStalling = false
+        player.automaticallyWaitsToMinimizeStalling = true
         player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
         timeObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.updateNativeState() }
@@ -212,7 +212,6 @@ final class PlaybackController: ObservableObject {
                 await nativeSeek(0)
             }
             guard requestID == currentRequest, !Task.isCancelled else { return }
-            isStartingItem = false
             state = .loading(entry.video)
             player.play()
             prepareNext()
@@ -492,9 +491,12 @@ final class PlaybackController: ObservableObject {
             try AudioSessionController.configure()
             if elapsed > 0 { await nativeSeek(elapsed) }
             guard requestID == currentRequest, !Task.isCancelled else { return }
-            isStartingItem = false
-            if autoplay { player.play() }
-            else { state = .paused(entry.video) }
+            if autoplay {
+                player.play()
+            } else {
+                isStartingItem = false
+                state = .paused(entry.video)
+            }
             prepareNext()
             requestRadioRefill()
         } catch {
@@ -605,6 +607,7 @@ final class PlaybackController: ObservableObject {
         }
         switch player.timeControlStatus {
         case .playing:
+            isStartingItem = false
             wantsPlayback = true
             automaticFailures = 0
             nativeEndCandidateEntryID = nil

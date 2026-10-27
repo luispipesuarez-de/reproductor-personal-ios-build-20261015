@@ -4,9 +4,9 @@ import XCTest
 
 @MainActor
 final class PlaybackControllerTests: XCTestCase {
-    func testPlayerStartsWithoutWaitingToMinimizeStalling() {
+    func testPlayerPreservesWaitingToMinimizeStallingForSmoothStreaming() {
         let controller = PlaybackController(source: StubYouTubeProvider())
-        XCTAssertFalse(controller.player.automaticallyWaitsToMinimizeStalling)
+        XCTAssertTrue(controller.player.automaticallyWaitsToMinimizeStalling)
     }
 
     func testResolutionFailureDoesNotAnnouncePlaying() async {
