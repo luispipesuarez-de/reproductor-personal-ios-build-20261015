@@ -18,6 +18,10 @@ struct Video: Identifiable, Codable, Equatable, Sendable {
     }
 
     var isPreferredSong: Bool { songPriority == 0 }
+    var isLongVideo: Bool {
+        guard let seconds = durationSeconds else { return false }
+        return seconds > 600
+    }
     var isOfficialChannel: Bool { officialChannel == true }
     var containsSoulReference: Bool { Self.normalizedCatalogText(title + " " + author).contains("soul") }
 

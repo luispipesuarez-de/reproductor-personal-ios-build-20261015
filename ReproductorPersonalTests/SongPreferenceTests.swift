@@ -55,7 +55,7 @@ final class SongPreferenceTests: XCTestCase {
         let session = RadioSession(source: StubYouTubeProvider(onRecommendations: { _, cursor in
             let page = Int(cursor ?? "0") ?? 0
             await calls.append(String(page))
-            let videos = [song(page + 1, "1:30:00"), song(page + 4, nil)]
+            let videos = [song(page + 1, "1:30:00"), song(page + 4, "45:00")]
             return RecommendationPage(videos: videos, continuation: page == 2 ? nil : String(page + 1))
         }))
         session.reset(seed: .genre("Rock"))

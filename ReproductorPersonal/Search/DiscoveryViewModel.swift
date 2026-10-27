@@ -24,7 +24,7 @@ final class DiscoveryViewModel: ObservableObject {
         requestID = UUID()
         let token = requestID
         var seedIDs: Set<String> = []
-        let references = likes + favorites + recent
+        let references = likes + Array(recent.prefix(1)) + favorites + Array(recent.dropFirst())
         let seeds = references.filter { !dislikedIDs.contains($0.id) && seedIDs.insert($0.id).inserted }.prefix(2)
         guard !seeds.isEmpty else { state = .idle; return }
         state = .loading
