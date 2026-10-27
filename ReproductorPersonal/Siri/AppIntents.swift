@@ -9,7 +9,15 @@ protocol SiriPlaybackControlling: AnyObject {
     func resume() async
 }
 
-extension PlaybackController: SiriPlaybackControlling {}
+extension PlaybackController: SiriPlaybackControlling {
+    func play(_ videos: [Video]) async {
+        await play(videos, startingAt: 0)
+    }
+
+    func resume() async {
+        await resume(allowAutomaticSkip: false)
+    }
+}
 
 enum SiriPlaybackError: Error, Equatable, LocalizedError {
     case unavailable
