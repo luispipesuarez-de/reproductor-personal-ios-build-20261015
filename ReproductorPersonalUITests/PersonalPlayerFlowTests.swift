@@ -285,6 +285,9 @@ final class PersonalPlayerFlowTests: XCTestCase {
         for _ in 0..<3 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.isHittable)
         toggle.tap()
+        if (toggle.value as? String) != "0" {
+            toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        }
         XCTAssertEqual(toggle.value as? String, "0")
         closePlayer()
         app.buttons["genre-Rock"].tap()
